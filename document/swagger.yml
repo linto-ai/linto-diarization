@@ -32,7 +32,12 @@ paths:
         type: "file"
       - name: "spk_number"
         in: "formData"
-        description: "Number of speaker (Optionnal)"
+        description: "Fixed number of speaker (Optionnal)"
+        required: false
+        type: integer
+      - name: "max_speaker"
+        in: "formData"
+        description: "Max number of speakers if spk_number is unknown"
         required: false
         type: integer
       responses:
