@@ -533,9 +533,8 @@ def get_sim_mat(X):
         # Cosine similarities
         M = sklearn.metrics.pairwise.cosine_similarity(X, X)
         return M
+        
 def p_pruning(A, pval):
-
-
     n_elems = int((1 - pval) * A.shape[0])
 
     # For each row in a affinity matrix
@@ -797,6 +796,7 @@ def sim_enhancement(A):
     for f in func_order:
         A = f(A)
     return A
+    
 def getSpectralClustering(bestClusteringMetric,clusteringTable,N_init, bkT, cvT, number_speaker, n, sigma, percentile, maxNrSpeakers):
     if number_speaker is None:
         #  Compute affinity matrix.
@@ -810,7 +810,7 @@ def getSpectralClustering(bestClusteringMetric,clusteringTable,N_init, bkT, cvT,
 
         (eigenvalues, eigenvectors) = compute_sorted_eigenvectors(affinity)
         # Get number of clusters.
-        k = compute_number_of_clusters(eigenvalues, 20, 1e-2)
+        k = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-2)
         print(k)
         # Get spectral embeddings.
         spectral_embeddings = eigenvectors[:, :k]

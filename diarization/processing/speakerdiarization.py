@@ -103,7 +103,6 @@ class SpeakerDiarization:
             hop = int(self.frame_shift_s * self.sr)
             NFFT = int(2**np.ceil(np.log2(frame_length_inSample)))
             
-
             mfccNumpy = mfcc(sig=self.data,
 			     fs=self.sr,
 			     num_ceps=30,
@@ -247,7 +246,7 @@ class SpeakerDiarization:
 
     
     
-    def run(self, audioFile, number_speaker = None):
+    def run(self, audioFile, number_speaker: int = None, max_speaker: int = None):
         try:
             start_time = time.time()
             feats = self.compute_feat_Librosa(audioFile)
@@ -322,7 +321,7 @@ class SpeakerDiarization:
                     self.metric_clusteringSelection, segmentBKTable, segmentCVTable, finalClusteringTable, k, self.maxNrSpeakers)
             elif self.bestClusteringCriterion == 'spectral':
                 bestClusteringID = getSpectralClustering(self.metric_clusteringSelection, finalClusteringTable,
-                                                         self.N_init, segmentBKTable, segmentCVTable, number_speaker, k, self.sigma, self.percentile, self.maxNrSpeakers)+1
+                                                         self.N_init, segmentBKTable, segmentCVTable, number_speaker, k, self.sigma, self.percentile, max_speaker if max_speaker is not None else self.maxNrSpeakers)+1
 
             final_clustering = bestClusteringID
             if self.resegmentation and np.size(np.unique(final_clustering), 0) > 1:

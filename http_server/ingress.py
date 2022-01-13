@@ -41,11 +41,14 @@ def transcribe():
             spk_number = request.form.get("spk_number", None)
             if spk_number is not None:
                 spk_number = int(spk_number)
+            max_spk_number = request.form.get("max_speaker", None)
+            if max_spk_number is not None:
+                max_spk_number = int(max_spk_number)
             start_t = time()
             
             # Diarization
             diarizationworker = SpeakerDiarization()
-            result = diarizationworker.run(request.files['file'], number_speaker=spk_number)
+            result = diarizationworker.run(request.files['file'], number_speaker=spk_number, max_speaker=max_spk_number)
             response = diarizationworker.format_response(result)
             logger.debug("Diarization complete (t={}s)".format(time() - start_t))
             

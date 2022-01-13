@@ -89,6 +89,7 @@ Diarization API
 * Response content: application/json
 * File: An Wave file
 * spk_number: (integer - optional) Number of speakers. If empty, diarization will guess.
+* max_speaker: (interger - optional) Max number of speakers if spk_number is empty. 
 
 Return a json object when using structured as followed:
 ```json
@@ -113,7 +114,8 @@ STT-Worker accepts requests with the following arguments:
 ```file_path: str, with_metadata: bool```
 
 * <ins>file_path</ins>: (str) Is the location of the file within the shared_folder. /.../SHARED_FOLDER/{file_path}
-* <ins>speaker_count</ins>: (int default None) Fixed number of speakers. 
+* <ins>speaker_count</ins>: (int default None) Fixed number of speakers.
+* <ins>max_speaker</ins>: (int default None) Max number of speaker if speaker_count=None. 
 
 #### Return format
 On a successfull transcription the returned object is a json object structured as follow:
@@ -145,5 +147,4 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
-* [Vosk, speech recognition toolkit](https://alphacephei.com/vosk/).
-* [Kaldi Speech Recognition Toolkit](https://github.com/kaldi-asr/kaldi)
+* [PyBK](https://github.com/josepatino/pyBK) diarization framework (License MIT).
