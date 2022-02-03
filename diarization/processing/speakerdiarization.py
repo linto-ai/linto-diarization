@@ -8,7 +8,6 @@ import librosa
 import webrtcvad
 
 import pyBK.diarizationFunctions as pybk
-#import getSegmentTable, trainKBM, getVgMatrix, getSegmentBKs, performClusteringLinkage, getSpectralClustering, performResegmentation
 from spafe.features.mfcc import mfcc, imfcc
 
 class SpeakerDiarization:
@@ -21,7 +20,7 @@ class SpeakerDiarization:
 
        # MFCC FEATURES PARAMETERS
         self.frame_length_s = 0.128
-        self.frame_shift_s = 0.03
+        self.frame_shift_s = 0.01
         self.num_bins = 30
         self.num_ceps = 30
 
