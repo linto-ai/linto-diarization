@@ -1,5 +1,5 @@
 FROM python:3.9
-LABEL maintainer="irebai@linagora.com, rbaraglia@linagora.com"
+LABEL maintainer="irebai@linagora.com, rbaraglia@linagora.com, wghezaiel@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \

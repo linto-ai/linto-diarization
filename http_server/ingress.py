@@ -45,22 +45,28 @@ def transcribe():
             if max_spk_number is not None:
                 max_spk_number = int(max_spk_number)
             start_t = time()
-            
-            # Diarization
-            diarizationworker = SpeakerDiarization()
-            result = diarizationworker.run(request.files['file'], number_speaker=spk_number, max_speaker=max_spk_number)
-            response = diarizationworker.format_response(result)
-            logger.debug("Diarization complete (t={}s)".format(time() - start_t))
-            
         else:
             raise ValueError('No audio file was uploaded')
-        return response, 200
-
     except ValueError as error:
         return str(error), 400
     except Exception as e:
         logger.error(e)
         return 'Server Error: {}'.format(str(e)), 500
+
+        # Diarization
+    try:
+        diarizationworker = SpeakerDiarization()
+        result = diarizationworker.run(request.files['file'], number_speaker=spk_number, max_speaker=max_spk_number)
+    except Exception as e:
+        return 'Diarization has failed: {}'.format(str(e)), 500
+
+    response = diarizationworker.format_response(result)
+    logger.debug("Diarization complete (t={}s)".format(time() - start_t))
+        
+    
+    return response, 200
+
+   
 
 # Rejected request handlers
 @app.errorhandler(405)
@@ -91,7 +97,8 @@ if __name__ == '__main__':
         logger.warning("Could not setup swagger: {}".format(str(e)))
     
     serving = GunicornServing(app, {'bind': '{}:{}'.format("0.0.0.0", args.service_port),
-                                    'workers': args.workers,})
+                                    'workers': args.workers,
+                                    'timeout': 3600})
     logger.info(args)
     try:
         serving.run()

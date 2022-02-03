@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 import os
-import sys
 import time
 import logging
 import uuid
-import yaml
 import numpy as np
 import librosa
 import webrtcvad
 
-from pyBK.diarizationFunctions import *
+import pyBK.diarizationFunctions as pybk
+#import getSegmentTable, trainKBM, getVgMatrix, getSegmentBKs, performClusteringLinkage, getSpectralClustering, performResegmentation
 from spafe.features.mfcc import mfcc, imfcc
-##############
-
 
 class SpeakerDiarization:
     def __init__(self):
@@ -24,46 +21,35 @@ class SpeakerDiarization:
 
        # MFCC FEATURES PARAMETERS
         self.frame_length_s = 0.128
-        self.frame_shift_s = 0.01
+        self.frame_shift_s = 0.03
         self.num_bins = 30
         self.num_ceps = 30
-        #####
 
         # Segment
         self.seg_length = 100  # Window size in frames
         self.seg_increment = 100  # Window increment after and before window in frames
         self.seg_rate = 100  # Window shifting in frames
-        #####
 
         # KBM
         # Minimum number of Gaussians in the initial pool
-        self.minimumNumberOfInitialGaussians = 1024
+        self.minimumNumberOfInitialGaussians = 800
         self.maximumKBMWindowRate = 50  # Maximum window rate for Gaussian computation
         self.windowLength = 200  # Window length for computing Gaussians
         self.kbmSize = 320  # Number of final Gaussian components in the KBM
         # If set to 1, the KBM size is set as a proportion, given by "relKBMsize", of the pool size
-        self.useRelativeKBMsize = 1
+        self.useRelativeKBMsize = False
         # Relative KBM size if "useRelativeKBMsize = 1" (value between 0 and 1).
         self.relKBMsize = 0.4
-        ######
 
         # BINARY_KEY
         self.topGaussiansPerFrame = 5  # Number of top selected components per frame
         self.bitsPerSegmentFactor = 0.2  # Percentage of bits set to 1 in the binary keys
-        ######
 
         # CLUSTERING
-        self.N_init = 25  # Number of initial clusters
-
         self.N_init = 15  # Number of initial clusters
 
-        # Set to one to perform linkage clustering instead of clustering/reassignment
-        self.linkage = 1
-        # Linkage criterion used if linkage==1 ('average', 'single', 'complete')
-        self.linkageCriterion = 'average'
-        # Similarity metric: 'cosine' for cumulative vectors, and 'jaccard' for binary keys
-        self.metric = 'cosine'
-        ######
+        self.linkageCriterion = 'average' # Linkage criterion used if linkage==1 ('average', 'single', 'complete')
+        self.metric = 'cosine' # Similarity metric: 'cosine' for cumulative vectors, and 'jaccard' for binary keys
 
         # CLUSTERING_SELECTION
         # Distance metric used in the selection of the output clustering solution ('jaccard','cosine')
@@ -73,18 +59,13 @@ class SpeakerDiarization:
         self.sigma = 1  # Spectral clustering parameters, employed if bestClusteringCriterion == spectral
         self.percentile = 80
         self.maxNrSpeakers = 20  # If known, max nr of speakers in a sesssion in the database. This is to limit the effect of changes in very small meaningless eigenvalues values generating huge eigengaps
-        ######
 
         # RESEGMENTATION
         self.resegmentation = 1  # Set to 1 to perform re-segmentation
-
         self.modelSize = 128  # Number of GMM components
-
         self.modelSize = 64  # Number of GMM components
-
         self.nbIter = 10  # Number of expectation-maximization (EM) iterations
         self.smoothWin = 100  # Size of the likelihood smoothing window in nb of frames
-        ######
 
     def compute_feat_Librosa(self, audioFile):
         try:
@@ -129,9 +110,9 @@ class SpeakerDiarization:
                 data = librosa.resample(data, sr, 16000)
                 sr = 16000
 
-            va_framed = py_webrtcvad(
+            va_framed = pybk.py_webrtcvad(
                 data, fs=sr, fs_vad=sr, hoplength=30, vad_mode=0)
-            segments = get_py_webrtcvad_segments(va_framed, sr)
+            segments = pybk.get_py_webrtcvad_segments(va_framed, sr)
             maskSAD = np.zeros([1, nFeatures])
             for seg in segments:
                 start = int(np.round(seg[0]/self.frame_shift_s))
@@ -176,7 +157,7 @@ class SpeakerDiarization:
         seg[0][0] = 0.0
         return seg
 
-    def format_response(self, segments):
+    def format_response(self, segments: list) -> dict:
         #########################
         # Response format is
         #
@@ -214,6 +195,8 @@ class SpeakerDiarization:
         _segments = []
         _speakers = {}
         seg_id = 1
+        spk_i = 1
+        spk_i_dict = {}
 
         # Remove the last line of the segments.
         # It indicates the end of the file and segments.
@@ -223,7 +206,13 @@ class SpeakerDiarization:
         for seg in segments:
             segment = {}
             segment['seg_id'] = seg_id
-            segment['spk_id'] = 'spk'+str(int(seg[2]))
+
+            # Ensure speaker id continuity and numbers speaker by order of appearance.
+            if seg[2] not in spk_i_dict.keys():
+                spk_i_dict[seg[2]] = spk_i
+                spk_i += 1
+
+            segment['spk_id'] = 'spk'+str(spk_i_dict[seg[2]])
             segment['seg_begin'] = float("{:.2f}".format(seg[0])) 
             segment['seg_end'] = float("{:.2f}".format(seg[0] + seg[1]))  
             
@@ -270,7 +259,7 @@ class SpeakerDiarization:
             data = feats[np.where(mask == 1)]
             del feats
 
-            segmentTable = getSegmentTable(
+            segmentTable = pybk.getSegmentTable(
                 mask, speechMapping, self.seg_length, self.seg_increment, self.seg_rate)
             numberOfSegments = np.size(segmentTable, 0)
             # create the KBM
@@ -293,50 +282,60 @@ class SpeakerDiarization:
                 kbmSize = int(self.kbmSize)
 
             # Training pool of',int(poolSize),'gaussians with a rate of',int(windowRate),'frames'
-            kbm, gmPool = trainKBM(
+            kbm, gmPool = pybk.trainKBM(
                 data, self.windowLength, windowRate, kbmSize)
 
             #'Selected',kbmSize,'gaussians from the pool'
-            Vg = getVgMatrix(data, gmPool, kbm, self.topGaussiansPerFrame)
+            Vg = pybk.getVgMatrix(data, gmPool, kbm, self.topGaussiansPerFrame)
 
             #'Computing binary keys for all segments... '
-            segmentBKTable, segmentCVTable = getSegmentBKs(
-                segmentTable, kbmSize, Vg, self.bitsPerSegmentFactor, speechMapping)
+            segmentBKTable, segmentCVTable = pybk.getSegmentBKs(segmentTable, 
+                                                                kbmSize, 
+                                                                Vg, 
+                                                                self.bitsPerSegmentFactor, 
+                                                                speechMapping)
 
             #'Performing initial clustering... '
-            initialClustering = np.digitize(np.arange(numberOfSegments), np.arange(
-                0, numberOfSegments, numberOfSegments/self.N_init))
+            initialClustering = np.digitize(np.arange(numberOfSegments), 
+                                            np.arange(0, numberOfSegments, numberOfSegments/self.N_init))
 
             #'Performing agglomerative clustering... '
-            if self.linkage:
-                finalClusteringTable, k = performClusteringLinkage(
-                    segmentBKTable, segmentCVTable, self.N_init, self.linkageCriterion, self.metric)
-            else:
-                finalClusteringTable, k = performClustering(
-                    speechMapping, segmentTable, segmentBKTable, segmentCVTable, Vg, self.bitsPerSegmentFactor, kbmSize, self.N_init, initialClustering, self.metric)
+            finalClusteringTable, k = pybk.performClusteringLinkage(segmentBKTable, 
+                                                                    segmentCVTable, 
+                                                                    self.N_init, 
+                                                                    self.linkageCriterion, 
+                                                                    self.metric)
 
             #'Selecting best clustering...'
-            if self.bestClusteringCriterion == 'elbow':
-                bestClusteringID = getBestClustering(
-                    self.metric_clusteringSelection, segmentBKTable, segmentCVTable, finalClusteringTable, k, self.maxNrSpeakers)
-            elif self.bestClusteringCriterion == 'spectral':
-                bestClusteringID = getSpectralClustering(self.metric_clusteringSelection, finalClusteringTable,
-                                                         self.N_init, segmentBKTable, segmentCVTable, number_speaker, k, self.sigma, self.percentile, max_speaker if max_speaker is not None else self.maxNrSpeakers)+1
+            #self.bestClusteringCriterion == 'spectral':
+            bestClusteringID = pybk.getSpectralClustering(self.metric_clusteringSelection, 
+                                                          finalClusteringTable, 
+                                                          self.N_init, 
+                                                          segmentBKTable, 
+                                                          segmentCVTable, 
+                                                          number_speaker, 
+                                                          k, 
+                                                          self.sigma, 
+                                                          self.percentile, 
+                                                          max_speaker if max_speaker is not None else self.maxNrSpeakers)+1
 
-            final_clustering = bestClusteringID
-            if self.resegmentation and np.size(np.unique(final_clustering), 0) > 1:
-                finalClusteringTableResegmentation, finalSegmentTable = performResegmentation(data, speechMapping, mask, final_clustering, segmentTable, self.modelSize, self.nbIter, self.smoothWin, nSpeechFeatures)
-                seg = self.getSegments(self.frame_shift_s, finalSegmentTable, np.squeeze(
-                    finalClusteringTableResegmentation), duration)
+            if self.resegmentation and np.size(np.unique(bestClusteringID), 0) > 1:
+                finalClusteringTableResegmentation, finalSegmentTable = pybk.performResegmentation(data,
+                                                                                                   speechMapping, 
+                                                                                                   mask, 
+                                                                                                   bestClusteringID, 
+                                                                                                   segmentTable, 
+                                                                                                   self.modelSize, 
+                                                                                                   self.nbIter, 
+                                                                                                   self.smoothWin, 
+                                                                                                   nSpeechFeatures)
+                seg = self.getSegments(self.frame_shift_s, 
+                                       finalSegmentTable, 
+                                       np.squeeze(finalClusteringTableResegmentation), 
+                                       duration)
             else:
                 return [[0, duration, 1],
                         [duration, -1, -1]]
-
-                #finalClusteringTable = final_clustering
-                #finalClusteringTable = finalClusteringTable[:,bestClusteringID.astype(int)-1]
-                #seg = self.getSegments(self.frame_shift_s, segmentTable, np.squeeze(
-                #    finalClusteringTable), duration)
-
 
             self.log.info("Speaker Diarization took %d[s] with a speed %0.2f[xRT]" %
                           (int(time.time() - start_time), float(int(time.time() - start_time)/duration)))
