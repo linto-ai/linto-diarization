@@ -42,6 +42,9 @@ This will run a container providing an http API binded on the host HOST_SERVING_
 | Variables | Description | Example |
 |:-|:-|:-|
 | HOST_SERVING_PORT | Host serving port | 80 |
+| CONCURRENCY | Number of HTTP worker* | 1+ |
+
+> *diarization uses all CPU available, adding workers will share the available CPU thus decreasing processing speed for concurrent requests
 
 ### Micro-service within LinTO-Platform stack
 >LinTO-platform-diarization can be deployed within the linto-platform-stack through the use of linto-platform-services-manager. Used this way, the container spawn celery worker waiting for diarization task on a message broker.
@@ -59,7 +62,7 @@ docker run --rm \
 --env BROKER_PASS=MY_BROKER_PASS \
 --env SERVICE_MODE=task \
 --env CONCURRENCY=1 \
-linstt:dev
+linto-platform-diarization:latest
 ```
 
 **Parameters:**
@@ -67,7 +70,9 @@ linstt:dev
 |:-|:-|:-|
 | SERVICES_BROKER | Service broker uri | redis://my_redis_broker:6379 |
 | BROKER_PASS | Service broker password (Leave empty if there is no password) | my_password |
-| CONCURRENCY | Number of worker (1 worker = 1 cpu) | [ 1 -> numberOfCPU] |
+| CONCURRENCY | Number of celery worker* | 1+ |
+
+> *diarization uses all CPU available, adding workers will share the available CPU thus decreasing processing speed for concurrent requests
 
 ## Usages
 
