@@ -19,11 +19,11 @@ class SpeakerDiarization:
             '__speaker-diarization-worker__' + '.' + __name__)
 
        # MFCC FEATURES PARAMETERS
-        self.frame_length_s = 0.128
+        self.frame_length_s = 0.03
         self.frame_shift_s = 0.01
         self.num_bins = 30
         self.num_ceps = 30
-
+        
         # Segment
         self.seg_length = 100  # Window size in frames
         self.seg_increment = 100  # Window increment after and before window in frames
@@ -31,21 +31,21 @@ class SpeakerDiarization:
 
         # KBM
         # Minimum number of Gaussians in the initial pool
-        self.minimumNumberOfInitialGaussians = 800
+        self.minimumNumberOfInitialGaussians = 1024
         self.maximumKBMWindowRate = 50  # Maximum window rate for Gaussian computation
         self.windowLength = 200  # Window length for computing Gaussians
         self.kbmSize = 320  # Number of final Gaussian components in the KBM
         # If set to 1, the KBM size is set as a proportion, given by "relKBMsize", of the pool size
         self.useRelativeKBMsize = False
         # Relative KBM size if "useRelativeKBMsize = 1" (value between 0 and 1).
-        self.relKBMsize = 0.4
+        self.relKBMsize = 0.1
 
         # BINARY_KEY
         self.topGaussiansPerFrame = 5  # Number of top selected components per frame
         self.bitsPerSegmentFactor = 0.2  # Percentage of bits set to 1 in the binary keys
 
         # CLUSTERING
-        self.N_init = 15  # Number of initial clusters
+        self.N_init = 25  # Number of initial clusters
 
         self.linkageCriterion = 'average' # Linkage criterion used if linkage==1 ('average', 'single', 'complete')
         self.metric = 'cosine' # Similarity metric: 'cosine' for cumulative vectors, and 'jaccard' for binary keys
@@ -61,9 +61,9 @@ class SpeakerDiarization:
 
         # RESEGMENTATION
         self.resegmentation = 1  # Set to 1 to perform re-segmentation
-        self.modelSize = 128  # Number of GMM components
-        self.modelSize = 64  # Number of GMM components
-        self.nbIter = 10  # Number of expectation-maximization (EM) iterations
+        self.modelSize = 16  # Number of GMM components
+        self.modelSize = 16  # Number of GMM components
+        self.nbIter = 5  # Number of expectation-maximization (EM) iterations
         self.smoothWin = 100  # Size of the likelihood smoothing window in nb of frames
 
     def compute_feat_Librosa(self, audioFile):
@@ -87,7 +87,7 @@ class SpeakerDiarization:
 			     fs=self.sr,
 			     num_ceps=30,
 			     pre_emph=0,
-			     win_len=0.128,
+			     win_len=0.03,
 			     win_hop=0.01,
 			     nfilts=30,
 			     nfft=NFFT,
@@ -122,6 +122,7 @@ class SpeakerDiarization:
             raise ValueError(
                 "Speaker diarization failed while voice activity detection!!!")
         else:
+            
             return maskSAD
 
     def getSegments(self, frameshift, finalSegmentTable, finalClusteringTable, dur):
@@ -241,9 +242,7 @@ class SpeakerDiarization:
             nFeatures = feats.shape[0]
             duration = nFeatures * self.frame_shift_s
 
-            if duration < 5:
-                return [[0, duration, 1],
-                        [duration, -1, -1]]
+            
 
             maskSAD = self.computeVAD_WEBRTC(self.data, self.sr, nFeatures)
             maskUEM = np.ones([1, nFeatures])
@@ -271,8 +270,7 @@ class SpeakerDiarization:
 
             if windowRate == 0:
                 #self.log.info('The audio is to short in order to perform the speaker diarization!!!')
-                return [[0, duration, 1],
-                        [duration, -1, -1]]
+                windowRate = 1
 
             poolSize = np.floor((nSpeechFeatures-self.windowLength)/windowRate)
             if self.useRelativeKBMsize:
@@ -308,7 +306,7 @@ class SpeakerDiarization:
             #'Selecting best clustering...'
             #self.bestClusteringCriterion == 'spectral':
             bestClusteringID = pybk.getSpectralClustering(self.metric_clusteringSelection, 
-                                                          finalClusteringTable, 
+                                                          
                                                           self.N_init, 
                                                           segmentBKTable, 
                                                           segmentCVTable, 
@@ -317,7 +315,7 @@ class SpeakerDiarization:
                                                           self.sigma, 
                                                           self.percentile, 
                                                           max_speaker if max_speaker is not None else self.maxNrSpeakers)+1
-
+            
             if self.resegmentation and np.size(np.unique(bestClusteringID), 0) > 1:
                 finalClusteringTableResegmentation, finalSegmentTable = pybk.performResegmentation(data,
                                                                                                    speechMapping, 
