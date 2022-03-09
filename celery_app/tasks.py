@@ -9,6 +9,13 @@ def diarization_task(file_name: str, speaker_count: int = None, max_speaker: int
     if not os.path.isfile(os.path.join("/opt/audio",file_name)):
         raise Exception("Could not find ressource {}".format(file_name))
 
+    # Check parameters
+    speaker_count = None if speaker_count == 0 else speaker_count
+    max_speaker = None if max_speaker == 0 else max_speaker
+
+    if speaker_count and max_speaker:
+        max_speaker = None
+
     # Processing
     try:
         diarizationworker = SpeakerDiarization()
