@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.10.4-slim-bullseye
 LABEL maintainer="irebai@linagora.com, rbaraglia@linagora.com, wghezaiel@linagora.com"
 
 RUN apt-get update &&\
