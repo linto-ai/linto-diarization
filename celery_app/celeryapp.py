@@ -14,11 +14,11 @@ celery.conf.result_backend = "{}/1".format(broker_url)
 celery.conf.update(
     result_expires=3600,
     task_acks_late=True,
-    task_track_started = True)
+    task_track_started=True)
 
 # Queues
 celery.conf.update(
     {'task_routes': {
-        'diarization_task' : {'queue': 'diarization'},}
-    }
+        'diarization_task': {'queue': 'diarization'}, }
+     }
 )
