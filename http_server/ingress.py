@@ -15,16 +15,20 @@ from diarization.processing.speakerdiarization import SpeakerDiarization
 
 app = Flask("__diarization-serving__")
 
-logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
+logging.basicConfig(
+    format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
 logger = logging.getLogger("__diarization-serving__")
+
 
 @app.route('/healthcheck', methods=['GET'])
 def healthcheck():
     return json.dumps({"healthcheck": "OK"}), 200
 
+
 @app.route("/oas_docs", methods=['GET'])
 def oas_docs():
     return "Not Implemented", 501
+
 
 @app.route('/diarization', methods=['POST'])
 def transcribe():
@@ -53,34 +57,36 @@ def transcribe():
         logger.error(e)
         return 'Server Error: {}'.format(str(e)), 500
 
-        # Diarization
+    # Diarization
     try:
         diarizationworker = SpeakerDiarization()
-        result = diarizationworker.run(request.files['file'], number_speaker=spk_number, max_speaker=max_spk_number)
+        result = diarizationworker.run(
+            request.files['file'], number_speaker=spk_number, max_speaker=max_spk_number)
     except Exception as e:
         return 'Diarization has failed: {}'.format(str(e)), 500
 
     response = diarizationworker.format_response(result)
     logger.debug("Diarization complete (t={}s)".format(time() - start_t))
-        
-    
+
     return response, 200
 
-   
 
 # Rejected request handlers
 @app.errorhandler(405)
 def method_not_allowed(error):
     return 'The method is not allowed for the requested URL', 405
 
+
 @app.errorhandler(404)
 def page_not_found(error):
     return 'The requested URL was not found', 404
+
 
 @app.errorhandler(500)
 def server_error(error):
     logger.error(error)
     return 'Server Error', 500
+
 
 if __name__ == '__main__':
     logger.info("Startup...")
@@ -95,7 +101,7 @@ if __name__ == '__main__':
             logger.debug("Swagger UI set.")
     except Exception as e:
         logger.warning("Could not setup swagger: {}".format(str(e)))
-    
+
     serving = GunicornServing(app, {'bind': '{}:{}'.format("0.0.0.0", args.service_port),
                                     'workers': args.workers,
                                     'timeout': 3600})

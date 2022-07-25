@@ -1,3 +1,9 @@
+# 1.0.3
+- Fixed: diarization failing on short audio when n_speaker > 1
+- Fixed (TBT): diarization returning segfault on machine with a lot of CPU
+- Added: Added Debugging logs using env variable DEBUG
+- Changed: Code formated to pep8
+
 # 1.0.2
 - Changed: Diarization parameters to reduce computation time
 - Fixed: Speaker id shoulds now be continuous and numeroted by order of appearance. 

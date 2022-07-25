@@ -33,6 +33,11 @@ COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 
+# Limits on OPENBLAS number of thread prevent SEGFAULT on machine with a large number of cpus
+ENV OPENBLAS_NUM_THREADS=32
+ENV GOTO_NUM_THREADS=32
+ENV OMP_NUM_THREADS=32
+
 HEALTHCHECK CMD ./healthcheck.sh
 
 # Entrypoint handles the passed arguments
