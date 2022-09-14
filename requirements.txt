@@ -12,3 +12,5 @@ matplotlib
 scipy
 sklearn
 spafe
+pydub
+python_speech_features
