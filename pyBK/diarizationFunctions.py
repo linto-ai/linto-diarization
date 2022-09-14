@@ -612,7 +612,7 @@ def getSpectralClustering(bestClusteringMetric, N_init, bkT, cvT, number_speaker
 
         (eigenvalues, eigenvectors) = compute_sorted_eigenvectors(affinity)
         # Get number of clusters.
-        k = compute_number_of_clusters(eigenvalues, 15, 1e-1)
+        k = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-1)
         # Get spectral embeddings.
         spectral_embeddings = eigenvectors[:, :k]
 
