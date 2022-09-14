@@ -8,7 +8,9 @@ import librosa
 import webrtcvad
 
 import pyBK.diarizationFunctions as pybk
-from spafe.features.mfcc import mfcc, imfcc
+#from spafe.features.mfcc import mfcc, imfcc
+from pydub import AudioSegment
+from python_speech_features import mfcc
 
 
 class SpeakerDiarization:
@@ -40,7 +42,7 @@ class SpeakerDiarization:
         self.windowLength = 200  # Window length for computing Gaussians
         self.kbmSize = 320  # Number of final Gaussian components in the KBM
         # If set to 1, the KBM size is set as a proportion, given by "relKBMsize", of the pool size
-        self.useRelativeKBMsize = False
+        self.useRelativeKBMsize = True
         # Relative KBM size if "useRelativeKBMsize = 1" (value between 0 and 1).
         self.relKBMsize = 0.1
 
@@ -81,27 +83,35 @@ class SpeakerDiarization:
             else:
                 file_path = audioFile
 
-            self.data, self.sr = librosa.load(file_path, sr=None)
+            self.sr = 16000
+            y = AudioSegment.from_wav(file_path)
+            self.data = np.array(y.get_array_of_samples())
             if type(audioFile) is not str:
                 os.remove(file_path)
 
             frame_length_inSample = self.frame_length_s * self.sr
             hop = int(self.frame_shift_s * self.sr)
             NFFT = int(2**np.ceil(np.log2(frame_length_inSample)))
+            
+            framelength_in_samples = self.frame_length_s * self.sr
+            n_fft = int(2 ** np.ceil(np.log2(framelength_in_samples)))
+    
+            additional_kwargs = {}
+            if self.sr >= 16000:
+               additional_kwargs.update({"lowfreq": 20, "highfreq": 7600})
 
-            mfcc_coef = mfcc(sig=self.data,
-                             fs=self.sr,
-                             num_ceps=30,
-                             pre_emph=0,
-                             win_len=0.03,
-                             win_hop=0.01,
-                             nfilts=30,
-                             nfft=NFFT,
-                             low_freq=20,
-                             high_freq=7600,
-                             dct_type=2,
-                             use_energy=False,
-                             normalize="mvn")
+        
+            mfcc_coef = mfcc(
+                    signal=self.data,
+                    samplerate=self.sr,
+                    numcep=30,
+                    nfilt=30,
+                    nfft=n_fft,
+                    winlen=0.03,
+                    winstep=0.01,
+                    **additional_kwargs,
+                )
+            
         except Exception as e:
             self.log.error(e)
             raise ValueError(
@@ -279,15 +289,13 @@ class SpeakerDiarization:
 
             # create the KBM
             # set the window rate in order to obtain "minimumNumberOfInitialGaussians" gaussians
-            if np.floor((nSpeechFeatures-self.windowLength)/self.minimumNumberOfInitialGaussians) < self.maximumKBMWindowRate:
-                windowRate = int(np.floor(
-                    (np.size(data, 0)-self.windowLength)/self.minimumNumberOfInitialGaussians))
-            else:
-                windowRate = int(self.maximumKBMWindowRate)
-
-            if windowRate == 0:
-                #self.log.info('The audio is to short in order to perform the speaker diarization!!!')
+            windowRate = np.floor((nSpeechFeatures-self.windowLength)/self.minimumNumberOfInitialGaussians)
+            if windowRate > self.maximumKBMWindowRate:
+                windowRate = self.maximumKBMWindowRate
+            elif windowRate == 0:
                 windowRate = 1
+            
+            
 
             poolSize = np.floor((nSpeechFeatures-self.windowLength)/windowRate)
             if self.useRelativeKBMsize:

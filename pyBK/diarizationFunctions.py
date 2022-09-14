@@ -22,6 +22,9 @@ from sklearn.utils.validation import check_array
 from sklearn.utils.extmath import _deterministic_vector_sign_flip
 from sklearn.utils import check_random_state
 import numpy as np
+from scipy.spatial.distance import cdist
+from scipy.stats import multivariate_normal
+from sklearn import mixture
 
 __all__ = ["py_webrtcvad", "getSegmentTable", "trainKBM", "getVgMatrix", "getSegmentBKs",
            "performClusteringLinkage", "getSpectralClustering", "performResegmentation"]
@@ -166,11 +169,9 @@ def unravelMask(mask):
 
 
 def trainKBM(data, windowLength, windowRate, kbmSize):
-    from scipy.stats import multivariate_normal
-    from scipy.spatial.distance import cdist
     # Calculate number of gaussian components in the whole gaussian pool
-    numberOfComponents = int(
-        np.floor((np.size(data, 0)-windowLength)/windowRate))
+    print(data.astype)
+    numberOfComponents = int(np.floor((np.size(data, 0) - windowLength) / windowRate))
     # Add new array for storing the mvn objects
     gmPool = []
     likelihoodVector = np.zeros((numberOfComponents, 1))
@@ -178,16 +179,25 @@ def trainKBM(data, windowLength, windowRate, kbmSize):
     sigmaVector = np.zeros((numberOfComponents, np.size(data, 1)))
     for i in range(numberOfComponents):
         mu = np.mean(
-            data[np.arange((i*windowRate), (i*windowRate+windowLength), 1, int)], axis=0)
+            data[np.arange((i * windowRate), (i * windowRate + windowLength), 1, int)],
+            axis=0,
+        )
         std = np.std(
-            data[np.arange((i*windowRate), (i*windowRate+windowLength), 1, int)], axis=0)
+            data[np.arange((i * windowRate), (i * windowRate + windowLength), 1, int)],
+            axis=0,
+        )
         muVector[i], sigmaVector[i] = mu, std
         mvn = multivariate_normal(mu, std)
         gmPool.append(mvn)
-        likelihoodVector[i] = -np.sum(mvn.logpdf(
-            data[np.arange((i*windowRate), (i*windowRate+windowLength), 1, int)]))
+        likelihoodVector[i] = -np.sum(
+            mvn.logpdf(
+                data[
+                    np.arange((i * windowRate), (i * windowRate + windowLength), 1, int)
+                ]
+            )
+        )
     # Define the global dissimilarity vector
-    v_dist = np.inf*np.ones((numberOfComponents, 1))
+    v_dist = np.inf * np.ones((numberOfComponents, 1))
     # Create the kbm itself, which is a vector of kbmSize size, and contains the gaussian IDs of the components
     kbm = np.zeros((kbmSize, 1))
     # As the stored likelihoods are negative, get the minimum likelihood
@@ -196,7 +206,7 @@ def trainKBM(data, windowLength, windowRate, kbmSize):
     kbm[0] = currentGaussianID
     v_dist[currentGaussianID] = -np.inf
     # Compare the current gaussian with the remaining ones
-    dpairsAll = cdist(muVector, muVector, metric='cosine')
+    dpairsAll = cdist(muVector, muVector, metric="cosine")
     np.fill_diagonal(dpairsAll, -np.inf)
     for j in range(1, kbmSize):
         dpairs = dpairsAll[currentGaussianID]
@@ -211,12 +221,19 @@ def trainKBM(data, windowLength, windowRate, kbmSize):
 
 
 def getVgMatrix(data, gmPool, kbm, topGaussiansPerFrame):
+    
     logLikelihoodTable = getLikelihoodTable(data, gmPool, kbm)
-    #Vg = np.argsort(-logLikelihoodTable)[:,0:topGaussiansPerFrame]
+    
+    # The original code was:
+    #     Vg = np.argsort(-logLikelihoodTable)[:, 0:topGaussiansPerFrame]
+    #     return Vg
+    # However this sorts the entire likelihood table, but we only need the top five,
+    # thich argpartition does in linear time
     partition_args = np.argpartition(-logLikelihoodTable, 5, axis=1)[:, :5]
     partition = np.take_along_axis(-logLikelihoodTable, partition_args, axis=1)
-    Vg = np.take_along_axis(partition_args, np.argsort(partition), axis=1)
-    return Vg
+    vg = np.take_along_axis(partition_args, np.argsort(partition), axis=1)
+    
+    return vg
 
 
 def getLikelihoodTable(data, gmPool, kbm):
@@ -232,6 +249,7 @@ def getLikelihoodTable(data, gmPool, kbm):
     kbmSize = np.size(kbm, 0)
     logLikelihoodTable = np.zeros([np.size(data, 0), kbmSize])
     for i in range(kbmSize):
+        # logging.info("pdf", i, gmPool[int(kbm[i])].logpdf(data).shape)
         logLikelihoodTable[:, i] = gmPool[int(kbm[i])].logpdf(data)
     return logLikelihoodTable
 
@@ -247,23 +265,21 @@ def getSegmentBKs(segmentTable, kbmSize, Vg, bitsPerSegmentFactor, speechMapping
     #   BITSPERSEGMENTFACTOR = proportion of bits that will be set to 1 in the binary keys
     # Output:
     #   SEGMENTBKTABLE = NxKBMSIZE matrix containing N binary keys for each N segments in SEGMENTTABLE
-    #   SEGMENTCVTABLE = NxKBMSIZE matrix containing N cumulative vectors for each N segments in SEGMENTTABLE
-
-    numberOfSegments = np.size(segmentTable, 0)
-    segmentBKTable = np.zeros([numberOfSegments, kbmSize])
-    segmentCVTable = np.zeros([numberOfSegments, kbmSize])
+    #   SEGMENTCVTABLE = NxKBMSIZE matrix containing N cumulative vectors for each N segments in SEGMENTTABLE  
+    
+    numberOfSegments = np.size(segmentTable,0)
+    segmentBKTable = np.zeros([numberOfSegments,kbmSize])
+    segmentCVTable = np.zeros([numberOfSegments,kbmSize])    
     for i in range(numberOfSegments):
-        # Conform the segment according to the segmentTable matrix
-        beginningIndex = int(segmentTable[i, 0])
-        endIndex = int(segmentTable[i, 3])
+        # Conform the segment according to the segmentTable matrix       
+        beginningIndex = int(segmentTable[i,0])
+        endIndex = int(segmentTable[i,3])
         # Store indices of features of the segment
         # speechMapping is substracted one because 1-indexing is used for this variable
-        A = np.arange(speechMapping[beginningIndex]-1,
-                      speechMapping[endIndex], dtype=int)
-        segmentBKTable[i], segmentCVTable[i] = binarizeFeatures(
-            kbmSize, Vg[A, :], bitsPerSegmentFactor)
+        A = np.arange(speechMapping[beginningIndex]-1,speechMapping[endIndex],dtype=int)
+        segmentBKTable[i], segmentCVTable[i] = binarizeFeatures(kbmSize, Vg[A,:], bitsPerSegmentFactor)
+    #print('done')
     return segmentBKTable, segmentCVTable
-
 
 def binarizeFeatures(binaryKeySize, topComponentIndicesMatrix, bitsPerSegmentFactor):
     # BINARIZEMATRIX Extracts a binary key and a cumulative vector from the the
@@ -285,9 +301,11 @@ def binarizeFeatures(binaryKeySize, topComponentIndicesMatrix, bitsPerSegmentFac
     # Fill CV
     v_f[:, unique] = counts
     # Fill BK
-    binaryKey[0, np.argsort(-v_f)[0][0:int(numberOfElementsBinaryKey)]] = 1
+    binaryKey[0, np.argsort(-v_f)[0][0 : int(numberOfElementsBinaryKey)]] = 1
     # CV normalization
-    v_f = v_f/np.sum(v_f)
+    vf_sum = np.sum(v_f)
+    if vf_sum != 0:
+        v_f = v_f / vf_sum
     return binaryKey, v_f
 
 
@@ -575,21 +593,26 @@ def sim_enhancement(A):
         A = f(A)
     return A
 
-
+def binaryKeySimilarity_cdist(clusteringMetric, bkT1, cvT1, bkT2, cvT2):
+    if clusteringMetric == "cosine":
+        S = 1 - cdist(cvT1, cvT2, metric=clusteringMetric)
+    elif clusteringMetric == "jaccard":
+        S = 1 - cdist(bkT1, bkT2, metric=clusteringMetric)
+    else:
+        logging.info("Clustering metric must be cosine or jaccard")
+    return S
+  
 def getSpectralClustering(bestClusteringMetric, N_init, bkT, cvT, number_speaker, n, sigma, percentile, maxNrSpeakers):
     if number_speaker is None:
         #  Compute affinity matrix.
-        affinity = compute_affinity_matrix(cvT)
-        #affinity = get_sim_mat(cvT)
-        affinity = p_pruning(affinity, 0.3)
-        affinity = 0.5 * (affinity + affinity.T)
+        simMatrix = binaryKeySimilarity_cdist(bestClusteringMetric,bkT,cvT,bkT,cvT)
 
         # Laplacian calculation
-        affinity = sim_enhancement(affinity)
+        affinity = sim_enhancement(simMatrix)
 
         (eigenvalues, eigenvectors) = compute_sorted_eigenvectors(affinity)
         # Get number of clusters.
-        k = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-2)
+        k = compute_number_of_clusters(eigenvalues, 15, 1e-1)
         # Get spectral embeddings.
         spectral_embeddings = eigenvectors[:, :k]
 
@@ -598,22 +621,26 @@ def getSpectralClustering(bestClusteringMetric, N_init, bkT, cvT, number_speaker
         # that supports customized distance measure such as cosine distance.
         # This implemention from scikit-learn does NOT, which is inconsistent
         # with the paper.
-        kmeans_clusterer = KMeans(
-            n_clusters=k,
-            init="k-means++",
-            max_iter=300,
-            random_state=0)
-        bestClusteringID = kmeans_clusterer.fit_predict(spectral_embeddings)
+        
+        bestClusteringID = spectral_clustering(affinity,
+                                           n_clusters=k,
+                                           eigen_solver=None,
+                                           random_state=None,
+                                           n_init=25,
+                                           eigen_tol=0.0,
+                                           assign_labels='kmeans')
 
     else:
         #  Compute affinity matrix.
-        affinity = get_sim_mat(cvT)
-        affinity = p_pruning(affinity, 0.3)
+        simMatrix = binaryKeySimilarity_cdist(bestClusteringMetric,bkT,cvT,bkT,cvT)
+
+        # Laplacian calculation
+        affinity = sim_enhancement(simMatrix)
         bestClusteringID = spectral_clustering(affinity,
                                                n_clusters=number_speaker,
                                                eigen_solver=None,
                                                random_state=None,
-                                               n_init=n,
+                                               n_init=25,
                                                eigen_tol=0.0,
                                                assign_labels='kmeans')
 
