@@ -1,3 +1,11 @@
+# 1.1
+- Changed: loading audio file by AudioSegment toolbox. 
+- Changed: mfcc are extracted by python_speech_features toolbox.
+- Fixed windowRate =< maximumKBMWindowRate.
+- Likelihood table is only calculated for the top five gaussian, computation time is reduced.
+- Similarity matrix is calculated by Binary keys and cumulative vectors
+- Removed: unused AHC.
+- Code formated to pep8
 # 1.0.3
 - Fixed: diarization failing on short audio when n_speaker > 1
 - Fixed (TBT): diarization returning segfault on machine with a lot of CPU
@@ -19,3 +27,7 @@
 - Diarization service bases on PyBK.
 - Celery connectivity
 - HTTP API
+
+
+
+
