@@ -16,32 +16,34 @@ from diarization.processing.speakerdiarization import SpeakerDiarization
 app = Flask("__diarization-serving__")
 
 logging.basicConfig(
-    format='%(asctime)s %(name)s %(levelname)s: %(message)s', datefmt='%d/%m/%Y %H:%M:%S')
+    format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+    datefmt="%d/%m/%Y %H:%M:%S",
+)
 logger = logging.getLogger("__diarization-serving__")
 
 
-@app.route('/healthcheck', methods=['GET'])
+@app.route("/healthcheck", methods=["GET"])
 def healthcheck():
     return json.dumps({"healthcheck": "OK"}), 200
 
 
-@app.route("/oas_docs", methods=['GET'])
+@app.route("/oas_docs", methods=["GET"])
 def oas_docs():
     return "Not Implemented", 501
 
 
-@app.route('/diarization', methods=['POST'])
+@app.route("/diarization", methods=["POST"])
 def transcribe():
     try:
-        logger.info('Diarization request received')
+        logger.info("Diarization request received")
 
         # get response content type
-        logger.debug(request.headers.get('accept').lower())
-        if not request.headers.get('accept').lower() == 'application/json':
-            raise ValueError('Not accepted header')
+        logger.debug(request.headers.get("accept").lower())
+        if not request.headers.get("accept").lower() == "application/json":
+            raise ValueError("Not accepted header")
 
         # get input file
-        if 'file' in request.files.keys():
+        if "file" in request.files.keys():
             spk_number = request.form.get("spk_number", None)
             if spk_number is not None:
                 spk_number = int(spk_number)
@@ -50,20 +52,21 @@ def transcribe():
                 max_spk_number = int(max_spk_number)
             start_t = time()
         else:
-            raise ValueError('No audio file was uploaded')
+            raise ValueError("No audio file was uploaded")
     except ValueError as error:
         return str(error), 400
     except Exception as e:
         logger.error(e)
-        return 'Server Error: {}'.format(str(e)), 500
+        return "Server Error: {}".format(str(e)), 500
 
     # Diarization
     try:
         diarizationworker = SpeakerDiarization()
         result = diarizationworker.run(
-            request.files['file'], number_speaker=spk_number, max_speaker=max_spk_number)
+            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number
+        )
     except Exception as e:
-        return 'Diarization has failed: {}'.format(str(e)), 500
+        return "Diarization has failed: {}".format(str(e)), 500
 
     response = diarizationworker.format_response(result)
     logger.debug("Diarization complete (t={}s)".format(time() - start_t))
@@ -74,21 +77,21 @@ def transcribe():
 # Rejected request handlers
 @app.errorhandler(405)
 def method_not_allowed(error):
-    return 'The method is not allowed for the requested URL', 405
+    return "The method is not allowed for the requested URL", 405
 
 
 @app.errorhandler(404)
 def page_not_found(error):
-    return 'The requested URL was not found', 404
+    return "The requested URL was not found", 404
 
 
 @app.errorhandler(500)
 def server_error(error):
     logger.error(error)
-    return 'Server Error', 500
+    return "Server Error", 500
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logger.info("Startup...")
 
     parser = createParser()
@@ -102,9 +105,14 @@ if __name__ == '__main__':
     except Exception as e:
         logger.warning("Could not setup swagger: {}".format(str(e)))
 
-    serving = GunicornServing(app, {'bind': '{}:{}'.format("0.0.0.0", args.service_port),
-                                    'workers': args.workers,
-                                    'timeout': 3600})
+    serving = GunicornServing(
+        app,
+        {
+            "bind": "{}:{}".format("0.0.0.0", args.service_port),
+            "workers": args.workers,
+            "timeout": 3600,
+        },
+    )
     logger.info(args)
     try:
         serving.run()

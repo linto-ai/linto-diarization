@@ -8,14 +8,15 @@ import librosa
 import webrtcvad
 
 import pyBK.diarizationFunctions as pybk
-#from spafe.features.mfcc import mfcc, imfcc
+
+# from spafe.features.mfcc import mfcc, imfcc
 from pydub import AudioSegment
 from python_speech_features import mfcc
 
 
 class SpeakerDiarization:
     def __init__(self):
-        self.log = logging.getLogger('__speaker-diarization__' + __name__)
+        self.log = logging.getLogger("__speaker-diarization__" + __name__)
 
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
             self.log.setLevel(logging.DEBUG)
@@ -48,21 +49,23 @@ class SpeakerDiarization:
 
         # BINARY_KEY
         self.topGaussiansPerFrame = 5  # Number of top selected components per frame
-        self.bitsPerSegmentFactor = 0.2  # Percentage of bits set to 1 in the binary keys
+        self.bitsPerSegmentFactor = (
+            0.2  # Percentage of bits set to 1 in the binary keys
+        )
 
         # CLUSTERING
         self.N_init = 25  # Number of initial clusters
 
         # Linkage criterion used if linkage==1 ('average', 'single', 'complete')
-        self.linkageCriterion = 'average'
+        self.linkageCriterion = "average"
         # Similarity metric: 'cosine' for cumulative vectors, and 'jaccard' for binary keys
-        self.metric = 'cosine'
+        self.metric = "cosine"
 
         # CLUSTERING_SELECTION
         # Distance metric used in the selection of the output clustering solution ('jaccard','cosine')
-        self.metric_clusteringSelection = 'cosine'
+        self.metric_clusteringSelection = "cosine"
         # Method employed for number of clusters selection. Can be either 'elbow' for an elbow criterion based on within-class sum of squares (WCSS) or 'spectral' for spectral clustering
-        self.bestClusteringCriterion = 'spectral'
+        self.bestClusteringCriterion = "spectral"
         self.sigma = 1  # Spectral clustering parameters, employed if bestClusteringCriterion == spectral
         self.percentile = 80
         self.maxNrSpeakers = 20  # If known, max nr of speakers in a sesssion in the database. This is to limit the effect of changes in very small meaningless eigenvalues values generating huge eigengaps
@@ -78,44 +81,44 @@ class SpeakerDiarization:
         try:
             if type(audioFile) is not str:
                 filename = str(uuid.uuid4())
-                file_path = "/tmp/"+filename
+                file_path = "/tmp/" + filename
                 audioFile.save(file_path)
             else:
                 file_path = audioFile
 
             self.sr = 16000
-            y = AudioSegment.from_wav(file_path)
-            self.data = np.array(y.get_array_of_samples())
+            audio = AudioSegment.from_wav(file_path)
+            audio = audio.set_frame_rate(self.sr)
+            audio = audio.set_channels(1)
+            self.data = np.array(audio.get_array_of_samples())
             if type(audioFile) is not str:
                 os.remove(file_path)
 
             frame_length_inSample = self.frame_length_s * self.sr
             hop = int(self.frame_shift_s * self.sr)
-            NFFT = int(2**np.ceil(np.log2(frame_length_inSample)))
-            
+            NFFT = int(2 ** np.ceil(np.log2(frame_length_inSample)))
+
             framelength_in_samples = self.frame_length_s * self.sr
             n_fft = int(2 ** np.ceil(np.log2(framelength_in_samples)))
-    
+
             additional_kwargs = {}
             if self.sr >= 16000:
-               additional_kwargs.update({"lowfreq": 20, "highfreq": 7600})
+                additional_kwargs.update({"lowfreq": 20, "highfreq": 7600})
 
-        
             mfcc_coef = mfcc(
-                    signal=self.data,
-                    samplerate=self.sr,
-                    numcep=30,
-                    nfilt=30,
-                    nfft=n_fft,
-                    winlen=0.03,
-                    winstep=0.01,
-                    **additional_kwargs,
-                )
-            
+                signal=self.data,
+                samplerate=self.sr,
+                numcep=30,
+                nfilt=30,
+                nfft=n_fft,
+                winlen=0.03,
+                winstep=0.01,
+                **additional_kwargs,
+            )
+
         except Exception as e:
             self.log.error(e)
-            raise ValueError(
-                "Speaker diarization failed when extracting features!!!")
+            raise ValueError("Speaker diarization failed when extracting features!!!")
         else:
             return mfcc_coef
 
@@ -126,45 +129,51 @@ class SpeakerDiarization:
                 sr = 16000
 
             va_framed = pybk.py_webrtcvad(
-                data, fs=sr, fs_vad=sr, hoplength=30, vad_mode=0)
+                data, fs=sr, fs_vad=sr, hoplength=30, vad_mode=0
+            )
             segments = pybk.get_py_webrtcvad_segments(va_framed, sr)
             maskSAD = np.zeros([1, nFeatures])
             for seg in segments:
-                start = int(np.round(seg[0]/self.frame_shift_s))
-                end = int(np.round(seg[1]/self.frame_shift_s))
+                start = int(np.round(seg[0] / self.frame_shift_s))
+                end = int(np.round(seg[1] / self.frame_shift_s))
                 maskSAD[0][start:end] = 1
         except Exception as e:
             self.log.error(e)
             raise ValueError(
-                "Speaker diarization failed while voice activity detection!!!")
+                "Speaker diarization failed while voice activity detection!!!"
+            )
         else:
 
             return maskSAD
 
     def getSegments(self, frameshift, finalSegmentTable, finalClusteringTable, dur):
-        numberOfSpeechFeatures = finalSegmentTable[-1, 2].astype(int)+1
+        numberOfSpeechFeatures = finalSegmentTable[-1, 2].astype(int) + 1
         solutionVector = np.zeros([1, numberOfSpeechFeatures])
         for i in np.arange(np.size(finalSegmentTable, 0)):
-            solutionVector[0, np.arange(
-                finalSegmentTable[i, 1], finalSegmentTable[i, 2]+1).astype(int)] = finalClusteringTable[i]
+            solutionVector[
+                0,
+                np.arange(finalSegmentTable[i, 1], finalSegmentTable[i, 2] + 1).astype(
+                    int
+                ),
+            ] = finalClusteringTable[i]
         seg = np.empty([0, 3])
         solutionDiff = np.diff(solutionVector)[0]
         first = 0
         for i in np.arange(0, np.size(solutionDiff, 0)):
             if solutionDiff[i]:
-                last = i+1
-                seg1 = (first)*frameshift
-                seg2 = (last-first)*frameshift
-                seg3 = solutionVector[0, last-1]
+                last = i + 1
+                seg1 = (first) * frameshift
+                seg2 = (last - first) * frameshift
+                seg3 = solutionVector[0, last - 1]
                 if seg.shape[0] != 0 and seg3 == seg[-1][2]:
                     seg[-1][1] += seg2
                 elif seg3 and seg2 > 1:  # and seg2 > 0.1
                     seg = np.vstack((seg, [seg1, seg2, seg3]))
-                first = i+1
+                first = i + 1
         last = np.size(solutionVector, 1)
-        seg1 = (first-1)*frameshift
-        seg2 = (last-first+1)*frameshift
-        seg3 = solutionVector[0, last-1]
+        seg1 = (first - 1) * frameshift
+        seg2 = (last - first + 1) * frameshift
+        seg3 = solutionVector[0, last - 1]
         if seg3 == seg[-1][2]:
             seg[-1][1] += seg2
         elif seg3 and seg2 > 1:  # and seg2 > 0.1
@@ -216,52 +225,56 @@ class SpeakerDiarization:
 
         # Remove the last line of the segments.
         # It indicates the end of the file and segments.
-        if segments[len(segments)-1][2] == -1:
-            segments = segments[:len(segments)-1]
+        if segments[len(segments) - 1][2] == -1:
+            segments = segments[: len(segments) - 1]
 
         for seg in segments:
             segment = {}
-            segment['seg_id'] = seg_id
+            segment["seg_id"] = seg_id
 
             # Ensure speaker id continuity and numbers speaker by order of appearance.
             if seg[2] not in spk_i_dict.keys():
                 spk_i_dict[seg[2]] = spk_i
                 spk_i += 1
 
-            segment['spk_id'] = 'spk'+str(spk_i_dict[seg[2]])
-            segment['seg_begin'] = float("{:.2f}".format(seg[0]))
-            segment['seg_end'] = float("{:.2f}".format(seg[0] + seg[1]))
+            segment["spk_id"] = "spk" + str(spk_i_dict[seg[2]])
+            segment["seg_begin"] = float("{:.2f}".format(seg[0]))
+            segment["seg_end"] = float("{:.2f}".format(seg[0] + seg[1]))
 
-            if segment['spk_id'] not in _speakers:
-                _speakers[segment['spk_id']] = {}
-                _speakers[segment['spk_id']]['spk_id'] = segment['spk_id']
-                _speakers[segment['spk_id']]['duration'] = float(
-                    "{:.2f}".format(seg[1]))
-                _speakers[segment['spk_id']]['nbr_seg'] = 1
+            if segment["spk_id"] not in _speakers:
+                _speakers[segment["spk_id"]] = {}
+                _speakers[segment["spk_id"]]["spk_id"] = segment["spk_id"]
+                _speakers[segment["spk_id"]]["duration"] = float(
+                    "{:.2f}".format(seg[1])
+                )
+                _speakers[segment["spk_id"]]["nbr_seg"] = 1
             else:
-                _speakers[segment['spk_id']]['duration'] += seg[1]
-                _speakers[segment['spk_id']]['nbr_seg'] += 1
-                _speakers[segment['spk_id']]['duration'] = float(
-                    "{:.2f}".format(_speakers[segment['spk_id']]['duration']))
+                _speakers[segment["spk_id"]]["duration"] += seg[1]
+                _speakers[segment["spk_id"]]["nbr_seg"] += 1
+                _speakers[segment["spk_id"]]["duration"] = float(
+                    "{:.2f}".format(_speakers[segment["spk_id"]]["duration"])
+                )
 
             _segments.append(segment)
             seg_id += 1
 
-        json['speakers'] = list(_speakers.values())
-        json['segments'] = _segments
+        json["speakers"] = list(_speakers.values())
+        json["segments"] = _segments
         return json
 
     def run(self, audioFile, number_speaker: int = None, max_speaker: int = None):
         self.log.debug(f"Starting diarization on file {audioFile}")
         try:
             start_time = time.time()
-            self.log.debug("Extracting features ... (t={:.2f}s)".format(
-                time.time() - start_time))
+            self.log.debug(
+                "Extracting features ... (t={:.2f}s)".format(time.time() - start_time)
+            )
             feats = self.compute_feat_Librosa(audioFile)
             nFeatures = feats.shape[0]
             duration = nFeatures * self.frame_shift_s
-            self.log.debug("Computing SAD Mask ... (t={:.2f}s)".format(
-                time.time() - start_time))
+            self.log.debug(
+                "Computing SAD Mask ... (t={:.2f}s)".format(time.time() - start_time)
+            )
             maskSAD = self.computeVAD_WEBRTC(self.data, self.sr, nFeatures)
             maskUEM = np.ones([1, nFeatures])
 
@@ -271,118 +284,136 @@ class SpeakerDiarization:
             speechMapping = np.zeros(nFeatures)
             # you need to start the mapping from 1 and end it in the actual number of features independently of the indexing style
             # so that we don't lose features on the way
-            speechMapping[np.nonzero(mask)] = np.arange(1, nSpeechFeatures+1)
+            speechMapping[np.nonzero(mask)] = np.arange(1, nSpeechFeatures + 1)
             data = feats[np.where(mask == 1)]
             del feats
 
-            self.log.debug("Computing segment table ... (t={:.2f}s)".format(
-                time.time() - start_time))
+            self.log.debug(
+                "Computing segment table ... (t={:.2f}s)".format(
+                    time.time() - start_time
+                )
+            )
             segmentTable = pybk.getSegmentTable(
-                mask, speechMapping, self.seg_length, self.seg_increment, self.seg_rate)
+                mask, speechMapping, self.seg_length, self.seg_increment, self.seg_rate
+            )
             numberOfSegments = np.size(segmentTable, 0)
             self.log.debug(f"Number of segment: {numberOfSegments}")
 
             if numberOfSegments == 1:
                 self.log.debug(f"Single segment: returning")
-                return [[0, duration, 1],
-                        [duration, -1, -1]]
+                return [[0, duration, 1], [duration, -1, -1]]
 
             # create the KBM
             # set the window rate in order to obtain "minimumNumberOfInitialGaussians" gaussians
-            windowRate = np.floor((nSpeechFeatures-self.windowLength)/self.minimumNumberOfInitialGaussians)
+            windowRate = np.floor(
+                (nSpeechFeatures - self.windowLength)
+                / self.minimumNumberOfInitialGaussians
+            )
             if windowRate > self.maximumKBMWindowRate:
                 windowRate = self.maximumKBMWindowRate
             elif windowRate == 0:
                 windowRate = 1
-            
-            
 
-            poolSize = np.floor((nSpeechFeatures-self.windowLength)/windowRate)
+            poolSize = np.floor((nSpeechFeatures - self.windowLength) / windowRate)
             if self.useRelativeKBMsize:
-                kbmSize = int(np.floor(poolSize*self.relKBMsize))
+                kbmSize = int(np.floor(poolSize * self.relKBMsize))
             else:
                 kbmSize = int(self.kbmSize)
 
             # Training pool of',int(poolSize),'gaussians with a rate of',int(windowRate),'frames'
-            self.log.debug("Training KBM ... (t={:.2f}s)".format(
-                time.time() - start_time))
-            kbm, gmPool = pybk.trainKBM(
-                data, self.windowLength, windowRate, kbmSize)
+            self.log.debug(
+                "Training KBM ... (t={:.2f}s)".format(time.time() - start_time)
+            )
+            kbm, gmPool = pybk.trainKBM(data, self.windowLength, windowRate, kbmSize)
 
             #'Selected',kbmSize,'gaussians from the pool'
             Vg = pybk.getVgMatrix(data, gmPool, kbm, self.topGaussiansPerFrame)
 
             #'Computing binary keys for all segments... '
-            self.log.debug("Computing binary keys ... (t={:.2f}s)".format(
-                time.time() - start_time))
-            segmentBKTable, segmentCVTable = pybk.getSegmentBKs(segmentTable,
-                                                                kbmSize,
-                                                                Vg,
-                                                                self.bitsPerSegmentFactor,
-                                                                speechMapping)
+            self.log.debug(
+                "Computing binary keys ... (t={:.2f}s)".format(time.time() - start_time)
+            )
+            segmentBKTable, segmentCVTable = pybk.getSegmentBKs(
+                segmentTable, kbmSize, Vg, self.bitsPerSegmentFactor, speechMapping
+            )
 
             #'Performing initial clustering... '
-            self.log.debug("Performing initial clustering ... (t={:.2f}s)".format(
-                time.time() - start_time))
-            initialClustering = np.digitize(np.arange(numberOfSegments),
-                                            np.arange(0, numberOfSegments, numberOfSegments/self.N_init))
-
-            #'Performing agglomerative clustering... '
-            self.log.debug("Performing agglomerative clustering ... (t={:.2f}s)".format(
-                time.time() - start_time))
-            finalClusteringTable, k = pybk.performClusteringLinkage(segmentBKTable,
-                                                                    segmentCVTable,
-                                                                    self.N_init,
-                                                                    self.linkageCriterion,
-                                                                    self.metric)
+            self.log.debug(
+                "Performing initial clustering ... (t={:.2f}s)".format(
+                    time.time() - start_time
+                )
+            )
 
             #'Selecting best clustering...'
             # self.bestClusteringCriterion == 'spectral':
-            self.log.debug("Selecting best clustering ... (t={:.2f}s)".format(
-                time.time() - start_time))
-            bestClusteringID = pybk.getSpectralClustering(self.metric_clusteringSelection,
-                                                          self.N_init,
-                                                          segmentBKTable,
-                                                          segmentCVTable,
-                                                          number_speaker,
-                                                          k,
-                                                          self.sigma,
-                                                          self.percentile,
-                                                          max_speaker if max_speaker is not None else self.maxNrSpeakers)+1
+            self.log.debug(
+                "Selecting best clustering ... (t={:.2f}s)".format(
+                    time.time() - start_time
+                )
+            )
+            bestClusteringID = (
+                pybk.getSpectralClustering(
+                    self.metric_clusteringSelection,
+                    self.N_init,
+                    segmentBKTable,
+                    segmentCVTable,
+                    number_speaker,
+                    self.sigma,
+                    self.percentile,
+                    max_speaker if max_speaker is not None else self.maxNrSpeakers,
+                )
+                + 1
+            )
 
             if self.resegmentation and np.size(np.unique(bestClusteringID), 0) > 1:
-                self.log.debug("Performing resegmentation ... (t={:.2f}s)".format(
-                    time.time() - start_time))
-                finalClusteringTableResegmentation, finalSegmentTable = pybk.performResegmentation(data,
-                                                                                                   speechMapping,
-                                                                                                   mask,
-                                                                                                   bestClusteringID,
-                                                                                                   segmentTable,
-                                                                                                   self.modelSize,
-                                                                                                   self.nbIter,
-                                                                                                   self.smoothWin,
-                                                                                                   nSpeechFeatures)
-                self.log.debug("Get segments ... (t={:.2f}s)".format(
-                    time.time() - start_time))
-                segments = self.getSegments(self.frame_shift_s,
-                                            finalSegmentTable,
-                                            np.squeeze(
-                                                finalClusteringTableResegmentation),
-                                            duration)
+                self.log.debug(
+                    "Performing resegmentation ... (t={:.2f}s)".format(
+                        time.time() - start_time
+                    )
+                )
+                (
+                    finalClusteringTableResegmentation,
+                    finalSegmentTable,
+                ) = pybk.performResegmentation(
+                    data,
+                    speechMapping,
+                    mask,
+                    bestClusteringID,
+                    segmentTable,
+                    self.modelSize,
+                    self.nbIter,
+                    self.smoothWin,
+                    nSpeechFeatures,
+                )
+                self.log.debug(
+                    "Get segments ... (t={:.2f}s)".format(time.time() - start_time)
+                )
+                segments = self.getSegments(
+                    self.frame_shift_s,
+                    finalSegmentTable,
+                    np.squeeze(finalClusteringTableResegmentation),
+                    duration,
+                )
             else:
-                return [[0, duration, 1],
-                        [duration, -1, -1]]
+                return [[0, duration, 1], [duration, -1, -1]]
 
-            self.log.info("Speaker Diarization took %d[s] with a speed %0.2f[xRT]" %
-                          (int(time.time() - start_time), float(int(time.time() - start_time)/duration)))
+            self.log.info(
+                "Speaker Diarization took %d[s] with a speed %0.2f[xRT]"
+                % (
+                    int(time.time() - start_time),
+                    float(int(time.time() - start_time) / duration),
+                )
+            )
         except ValueError as v:
             self.log.error(v)
             raise ValueError(
-                'Speaker diarization failed during processing the speech signal')
+                "Speaker diarization failed during processing the speech signal"
+            )
         except Exception as e:
             self.log.error(e)
             raise Exception(
-                'Speaker diarization failed during processing the speech signal')
+                "Speaker diarization failed during processing the speech signal"
+            )
         else:
             self.log.debug(self.format_response(segments))
             return segments
