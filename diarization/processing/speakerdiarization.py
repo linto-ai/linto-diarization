@@ -169,6 +169,8 @@ class SpeakerDiarization:
                     seg[-1][1] += duration
                 elif spklabel and duration > min_duration:
                     seg = np.vstack((seg, [start, duration, spklabel]))
+                else: # Silence or too short segment
+                    continue
                 first = i + 1
         last = np.size(solutionVector, 1)
         start = (first - 1) * frameshift
