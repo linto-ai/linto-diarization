@@ -628,6 +628,7 @@ def getSpectralClustering(
     sigma,
     percentile,
     maxNrSpeakers,
+    random_state = None,
 ):
     if number_speaker is None:
         #  Compute affinity matrix.
@@ -638,25 +639,7 @@ def getSpectralClustering(
 
         (eigenvalues, eigenvectors) = compute_sorted_eigenvectors(affinity)
         # Get number of clusters.
-        k = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-2)
-        # Get spectral embeddings.
-        spectral_embeddings = eigenvectors[:, :k]
-
-        # Run K-Means++ on spectral embeddings.
-        # Note: The correct way should be using a K-Means implementation
-        # that supports customized distance measure such as cosine distance.
-        # This implemention from scikit-learn does NOT, which is inconsistent
-        # with the paper.
-
-        bestClusteringID = spectral_clustering(
-            affinity,
-            n_clusters=k,
-            eigen_solver=None,
-            random_state=None,
-            n_init=25,
-            eigen_tol=0.0,
-            assign_labels="kmeans",
-        )
+        number_speaker = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-2)
 
     else:
         #  Compute affinity matrix.
@@ -664,15 +647,16 @@ def getSpectralClustering(
 
         # Laplacian calculation
         affinity = sim_enhancement(simMatrix)
-        bestClusteringID = spectral_clustering(
-            affinity,
-            n_clusters=number_speaker,
-            eigen_solver=None,
-            random_state=None,
-            n_init=25,
-            eigen_tol=0.0,
-            assign_labels="kmeans",
-        )
+
+    bestClusteringID = spectral_clustering(
+        affinity,
+        n_clusters=number_speaker,
+        eigen_solver=None,
+        random_state=random_state,
+        n_init=25,
+        eigen_tol=0.0,
+        assign_labels="kmeans",
+    )
 
     return bestClusteringID
 
