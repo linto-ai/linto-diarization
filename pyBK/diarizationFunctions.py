@@ -628,6 +628,7 @@ def getSpectralClustering(
     sigma,
     percentile,
     maxNrSpeakers,
+    random_state = None,
 ):
     if number_speaker is None:
         #  Compute affinity matrix.
@@ -652,7 +653,7 @@ def getSpectralClustering(
             affinity,
             n_clusters=k,
             eigen_solver=None,
-            random_state=None,
+            random_state=random_state,
             n_init=25,
             eigen_tol=0.0,
             assign_labels="kmeans",
@@ -668,7 +669,7 @@ def getSpectralClustering(
             affinity,
             n_clusters=number_speaker,
             eigen_solver=None,
-            random_state=None,
+            random_state=random_state,
             n_init=25,
             eigen_tol=0.0,
             assign_labels="kmeans",

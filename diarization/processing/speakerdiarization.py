@@ -77,6 +77,9 @@ class SpeakerDiarization:
         self.nbIter = 5  # Number of expectation-maximization (EM) iterations
         self.smoothWin = 100  # Size of the likelihood smoothing window in nb of frames
 
+        # Pseudo-randomness
+        self.seed = 0
+
     def compute_feat_Librosa(self, audioFile):
         try:
             if type(audioFile) is not str:
@@ -363,6 +366,7 @@ class SpeakerDiarization:
                     self.sigma,
                     self.percentile,
                     max_speaker if max_speaker is not None else self.maxNrSpeakers,
+                    random_state=self.seed,
                 )
                 + 1
             )
