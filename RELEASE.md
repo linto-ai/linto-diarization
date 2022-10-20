@@ -1,3 +1,17 @@
+# 1.1.1
+- Fixed: silences (and short occurrences <1 sec between silences) occurring inside a speaker turn were postponed at the end of the speaker turn (and could be arbitrarily assigned to next speaker)
+- Fixed: make diarization deterministic (random seed is fixed)
+- Tune length of short occurrences to consider as silences (0.3 sec)
+
+# 1.1.0
+- Changed: loading audio file by AudioSegment toolbox. 
+- Changed: mfcc are extracted by python_speech_features toolbox.
+- Fixed windowRate =< maximumKBMWindowRate.
+- Likelihood table is only calculated for the top five gaussian, computation time is reduced.
+- Similarity matrix is calculated by Binary keys and cumulative vectors
+- Removed: unused AHC.
+- Code formated to pep8
+
 # 1.0.3
 - Fixed: diarization failing on short audio when n_speaker > 1
 - Fixed (TBT): diarization returning segfault on machine with a lot of CPU
