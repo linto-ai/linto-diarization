@@ -73,12 +73,14 @@ class SpeakerDiarization:
         # RESEGMENTATION
         self.resegmentation = 1  # Set to 1 to perform re-segmentation
         self.modelSize = 16  # Number of GMM components
-        self.modelSize = 16  # Number of GMM components
         self.nbIter = 5  # Number of expectation-maximization (EM) iterations
         self.smoothWin = 100  # Size of the likelihood smoothing window in nb of frames
 
         # Pseudo-randomness
         self.seed = 0
+
+        # Short segments to ignore
+        self.min_duration = 0.3
 
     def compute_feat_Librosa(self, audioFile):
         try:
@@ -149,7 +151,7 @@ class SpeakerDiarization:
 
             return maskSAD
 
-    def getSegments(self, frameshift, finalSegmentTable, finalClusteringTable, dur, min_duration = 1):
+    def getSegments(self, frameshift, finalSegmentTable, finalClusteringTable, dur):
         numberOfSpeechFeatures = finalSegmentTable[-1, 2].astype(int) + 1
         solutionVector = np.zeros([1, numberOfSpeechFeatures])
         for i in range(np.size(finalSegmentTable, 0)):
@@ -168,23 +170,24 @@ class SpeakerDiarization:
                 start = (first) * frameshift
                 duration = (last - first) * frameshift
                 spklabel = solutionVector[0, last - 1]
-                if seg.shape[0] != 0 and spklabel == seg[-1][2]:
+                silence = not spklabel or duration <= self.min_duration
+                if seg.shape[0] != 0 and (spklabel == seg[-1][2] or silence):
                     seg[-1][1] += duration
-                elif spklabel and duration > min_duration:
+                elif not silence:
                     seg = np.vstack((seg, [start, duration, spklabel]))
-                else: # Silence or too short segment
+                else: # First silence
                     continue
                 first = i + 1
         last = np.size(solutionVector, 1)
         start = (first - 1) * frameshift
         duration = (last - first + 1) * frameshift
         spklabel = solutionVector[0, last - 1]
-        if spklabel == seg[-1][2]:
+        silence = not spklabel or duration <= self.min_duration
+        if spklabel == seg[-1][2] or silence:
             seg[-1][1] += duration
-        elif spklabel and duration > min_duration:
+        else:
             seg = np.vstack((seg, [start, duration, spklabel]))
-        seg = np.vstack((seg, [dur, -1, -1]))
-        seg[0][0] = 0.0 # Do we want first segment to start at the beginning?
+        seg = np.vstack((seg, [dur, -1, -1])) # Why?
         return seg
 
     def format_response(self, segments: list) -> dict:
