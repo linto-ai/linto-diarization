@@ -73,9 +73,14 @@ class SpeakerDiarization:
         # RESEGMENTATION
         self.resegmentation = 1  # Set to 1 to perform re-segmentation
         self.modelSize = 16  # Number of GMM components
-        self.modelSize = 16  # Number of GMM components
         self.nbIter = 5  # Number of expectation-maximization (EM) iterations
         self.smoothWin = 100  # Size of the likelihood smoothing window in nb of frames
+
+        # Pseudo-randomness
+        self.seed = 0
+
+        # Short segments to ignore
+        self.min_duration = 0.3
 
     def compute_feat_Librosa(self, audioFile):
         try:
@@ -149,7 +154,7 @@ class SpeakerDiarization:
     def getSegments(self, frameshift, finalSegmentTable, finalClusteringTable, dur):
         numberOfSpeechFeatures = finalSegmentTable[-1, 2].astype(int) + 1
         solutionVector = np.zeros([1, numberOfSpeechFeatures])
-        for i in np.arange(np.size(finalSegmentTable, 0)):
+        for i in range(np.size(finalSegmentTable, 0)):
             solutionVector[
                 0,
                 np.arange(finalSegmentTable[i, 1], finalSegmentTable[i, 2] + 1).astype(
@@ -159,27 +164,30 @@ class SpeakerDiarization:
         seg = np.empty([0, 3])
         solutionDiff = np.diff(solutionVector)[0]
         first = 0
-        for i in np.arange(0, np.size(solutionDiff, 0)):
+        for i in range(0, np.size(solutionDiff, 0)):
             if solutionDiff[i]:
                 last = i + 1
-                seg1 = (first) * frameshift
-                seg2 = (last - first) * frameshift
-                seg3 = solutionVector[0, last - 1]
-                if seg.shape[0] != 0 and seg3 == seg[-1][2]:
-                    seg[-1][1] += seg2
-                elif seg3 and seg2 > 1:  # and seg2 > 0.1
-                    seg = np.vstack((seg, [seg1, seg2, seg3]))
+                start = (first) * frameshift
+                duration = (last - first) * frameshift
+                spklabel = solutionVector[0, last - 1]
+                silence = not spklabel or duration <= self.min_duration
+                if seg.shape[0] != 0 and (spklabel == seg[-1][2] or silence):
+                    seg[-1][1] += duration
+                elif not silence:
+                    seg = np.vstack((seg, [start, duration, spklabel]))
+                else: # First silence
+                    continue
                 first = i + 1
         last = np.size(solutionVector, 1)
-        seg1 = (first - 1) * frameshift
-        seg2 = (last - first + 1) * frameshift
-        seg3 = solutionVector[0, last - 1]
-        if seg3 == seg[-1][2]:
-            seg[-1][1] += seg2
-        elif seg3 and seg2 > 1:  # and seg2 > 0.1
-            seg = np.vstack((seg, [seg1, seg2, seg3]))
-        seg = np.vstack((seg, [dur, -1, -1]))
-        seg[0][0] = 0.0
+        start = (first - 1) * frameshift
+        duration = (last - first + 1) * frameshift
+        spklabel = solutionVector[0, last - 1]
+        silence = not spklabel or duration <= self.min_duration
+        if spklabel == seg[-1][2] or silence:
+            seg[-1][1] += duration
+        else:
+            seg = np.vstack((seg, [start, duration, spklabel]))
+        seg = np.vstack((seg, [dur, -1, -1])) # Why?
         return seg
 
     def format_response(self, segments: list) -> dict:
@@ -361,6 +369,7 @@ class SpeakerDiarization:
                     self.sigma,
                     self.percentile,
                     max_speaker if max_speaker is not None else self.maxNrSpeakers,
+                    random_state=self.seed,
                 )
                 + 1
             )
