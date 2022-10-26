@@ -1,3 +1,8 @@
+# 1.1.0
+- Added service registration.
+- Updated healthcheck to add heartbeat.
+- Added possibility to overide generated queue name.
+
 # 1.0.3
 - Fixed: diarization failing on short audio when n_speaker > 1
 - Fixed (TBT): diarization returning segfault on machine with a lot of CPU

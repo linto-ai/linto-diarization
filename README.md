@@ -1,7 +1,21 @@
 # LINTO-PLATFORM-DIARIZATION
-LinTO-platform-diarization is the speaker diarization service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack).
+LinTO-platform-diarization is the [LinTO](https://linto.ai/) service for speaker diarization.
 
-LinTO-platform-diarization can either be used as a standalone diarization service or deployed within a micro-services infrastructure using a message broker connector.
+LinTO-platform-diarization can either be used as a standalone diarization service or deployed as a micro-services.
+
+* [Prerequisites](#pre-requisites)
+* [Deploy](#deploy)
+  * [HTTP](#http)
+  * [MicroService](#micro-service)
+* [Usage](#usages)
+  * [HTTP API](#http-api)
+    * [/healthcheck](#healthcheck)
+    * [/diarization](#diarization)
+    * [/docs](#docs)
+  * [Using celery](#using-celery)
+
+* [License](#license)
+***
 
 ## Pre-requisites
 
@@ -9,11 +23,11 @@ LinTO-platform-diarization can either be used as a standalone diarization servic
 The transcription service requires docker up and running.
 
 ### (micro-service) Service broker and shared folder
-The diarization only entry point in job mode are tasks posted on a message broker. Supported message broker are RabbitMQ, Redis, Amazon SQS.
-On addition, as to prevent large audio from transiting through the message broker, lp-diarization use a shared storage folder.
+The diarization only entry point in job mode are tasks posted on a Redis message broker.
+Futhermore, to prevent large audio from transiting through the message broker, diarization uses a shared storage folder mounted on /opt/audio.
 
-## Deploy linto-platform-diarization
-linto-platform-stt can be deployed three ways:
+## Deploy
+linto-platform-diarization can be deployed:
 * As a standalone diarization service through an HTTP API.
 * As a micro-service connected to a message broker.
 
@@ -22,17 +36,30 @@ linto-platform-stt can be deployed three ways:
 ```bash
 git clone https://github.com/linto-ai/linto-platform-diarization.git
 cd linto-platform-diarization
-git submodule init
-git submodule update
 docker build . -t linto-platform-diarization:latest
 ```
 
-### HTTP API
+### HTTP
+
+**1- Fill the .env**
+```bash
+cp .env_default_http .env
+```
+
+Fill the .env with your values.
+
+**Parameters:**
+| Variables | Description | Example |
+|:-|:-|:-|
+| CONCURRENCY | Number of HTTP worker* | 1+ |
+
+**2- Run the container**
 
 ```bash
 docker run --rm \
+-v SHARED_FOLDER:/opt/audio \
 -p HOST_SERVING_PORT:80 \
---env SERVICE_MODE=http \
+--env-file .env \
 linto-platform-diarization:latest
 ```
 
@@ -42,37 +69,89 @@ This will run a container providing an http API binded on the host HOST_SERVING_
 | Variables | Description | Example |
 |:-|:-|:-|
 | HOST_SERVING_PORT | Host serving port | 80 |
-| CONCURRENCY | Number of HTTP worker* | 1+ |
 
 > *diarization uses all CPU available, adding workers will share the available CPU thus decreasing processing speed for concurrent requests
 
-### Micro-service within LinTO-Platform stack
->LinTO-platform-diarization can be deployed within the linto-platform-stack through the use of linto-platform-services-manager. Used this way, the container spawn celery worker waiting for diarization task on a message broker.
->LinTO-platform-diarization in task mode is not intended to be launch manually.
->However, if you intent to connect it to your custom message's broker here are the parameters:
+### Using celery
+>LinTO-platform-diarization can be deployed as a micro-service using celery. Used this way, the container spawn celery worker waiting for diarization task on a message broker.
 
-You need a message broker up and running at MY_SERVICE_BROKER.
+You need a message broker up and running at SERVICES_BROKER.
 
+**1- Fill the .env**
 ```bash
-docker run --rm \
--v AM_PATH:/opt/models/AM \
--v LM_PATH:/opt/models/LM \
--v SHARED_AUDIO_FOLDER:/opt/audio \
---env SERVICES_BROKER=MY_SERVICE_BROKER \
---env BROKER_PASS=MY_BROKER_PASS \
---env SERVICE_MODE=task \
---env CONCURRENCY=1 \
-linto-platform-diarization:latest
+cp .env_default_task .env
 ```
+
+Fill the .env with your values.
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
 | SERVICES_BROKER | Service broker uri | redis://my_redis_broker:6379 |
 | BROKER_PASS | Service broker password (Leave empty if there is no password) | my_password |
-| CONCURRENCY | Number of celery worker* | 1+ |
+| QUEUE_NAME | (Optionnal) overide the generated queue's name (See Queue name bellow) | my_queue |
+| SERVICE_NAME | Service's name | diarization-ml |
+| LANGUAGE | Language code as a BCP-47 code | en-US or * or languages separated by "\|" |
+| MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
+| CONCURRENCY | Number of worker (1 worker = 1 cpu) | >1 |
 
-> *diarization uses all CPU available, adding workers will share the available CPU thus decreasing processing speed for concurrent requests
+> Do not use spaces or character "_" for SERVICE_NAME or language.
+
+**2- Fill the docker-compose.yml**
+
+`#docker-compose.yml`
+```yaml
+version: '3.7'
+
+services:
+  punctuation-service:
+    image: linto-platform-diarization:latest
+    volumes:
+      - /path/to/shared/folder:/opt/audio
+    env_file: .env
+    deploy:
+      replicas: 1
+    networks:
+      - your-net
+
+networks:
+  your-net:
+    external: true
+```
+
+**3- Run with docker compose**
+
+```bash
+docker stack deploy --resolve-image always --compose-file docker-compose.yml your_stack
+```
+
+**Queue name:**
+
+By default the service queue name is generated using SERVICE_NAME and LANGUAGE: `diarization_{LANGUAGE}_{SERVICE_NAME}`.
+
+The queue name can be overided using the QUEUE_NAME env variable. 
+
+**Service discovery:**
+
+As a micro-service, the instance will register itself in the service registry for discovery. The service information are stored as a JSON object in redis's db0 under the id `service:{HOST_NAME}`.
+
+The following information are registered:
+
+```json
+{
+  "service_name": $SERVICE_NAME,
+  "host_name": $HOST_NAME,
+  "service_type": "diarization",
+  "service_language": $LANGUAGE,
+  "queue_name": $QUEUE_NAME,
+  "version": "1.2.0", # This repository's version
+  "info": "Multilingual diarization model",
+  "last_alive": 65478213,
+  "concurrency": 1
+}
+```
+
+
 
 ## Usages
 
@@ -92,9 +171,9 @@ Diarization API
 
 * Method: POST
 * Response content: application/json
-* File: An Wave file
-* spk_number: (integer - optional) Number of speakers. If empty, diarization will guess.
-* max_speaker: (interger - optional) Max number of speakers if spk_number is empty. 
+* File: A Wave file
+* spk_number: (integer - optional) Number of speakers. If empty, diarization will clusterize automatically.
+* max_speaker: (integer - optional) Max number of speakers if spk_number is unknown. 
 
 Return a json object when using structured as followed:
 ```json
@@ -116,7 +195,7 @@ The /docs route offers a OpenAPI/swagger interface.
 ### Through the message broker
 
 STT-Worker accepts requests with the following arguments:
-```file_path: str, with_metadata: bool```
+```file_path: str, speaker_count: int (None), max_speaker: int (None)```
 
 * <ins>file_path</ins>: (str) Is the location of the file within the shared_folder. /.../SHARED_FOLDER/{file_path}
 * <ins>speaker_count</ins>: (int default None) Fixed number of speakers.

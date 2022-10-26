@@ -1,6 +1,4 @@
 #!/bin/bash
-set -ea
-
 echo "RUNNING Diarization"
 
 # Launch parameters, environement variables and dependencies check
@@ -18,11 +16,26 @@ else
         if [[ -z "$SERVICES_BROKER" ]]
         then 
             echo "ERROR: SERVICES_BROKER variable not specified, cannot start celery worker."
-            return -1
+            exit -1
         fi
+        echo "Running celery worker"
         /usr/src/app/wait-for-it.sh $(echo $SERVICES_BROKER | cut -d'/' -f 3) --timeout=20 --strict -- echo " $SERVICES_BROKER (Service Broker) is up"
-        echo "RUNNING STT CELERY WORKER"
-        celery --app=celery_app.celeryapp worker -Ofair -n diarization_worker@%h --queues=diarization -c $CONCURRENCY
+        # MICRO SERVICE
+        ## QUEUE NAME
+        QUEUE=$(python -c "from celery_app.register import queue; exit(queue())" 2>&1)
+        echo "Service set to $QUEUE"
+
+        ## REGISTRATION
+        python -c "from celery_app.register import register; register()"
+        echo "Service registered"
+
+        ## WORKER
+        celery --app=celery_app.celeryapp worker -Ofair -n diarization_worker@%h --queues=$QUEUE -c $CONCURRENCY
+
+        ## UNREGISTERING
+        python -c "from celery_app.register import unregister; unregister()"
+        echo "Service unregistered"
+        
     else
         echo "ERROR: Wrong serving command: $1"
         exit -1
