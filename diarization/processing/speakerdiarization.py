@@ -4,6 +4,9 @@ import os
 import time
 import uuid
 
+import librosa
+import numpy as np
+
 import pyBK.diarizationFunctions as pybk
 
 # from spafe.features.mfcc import mfcc, imfcc
