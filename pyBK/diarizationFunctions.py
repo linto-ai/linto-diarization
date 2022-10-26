@@ -324,29 +324,6 @@ def binarizeFeatures(binaryKeySize, topComponentIndicesMatrix, bitsPerSegmentFac
     return binaryKey, v_f
 
 
-<<<<<<< HEAD
-def performClusteringLinkage(
-    segmentBKTable, segmentCVTable, N_init, linkageCriterion, linkageMetric
-):
-    from scipy import cluster
-    from scipy.cluster.hierarchy import linkage
-
-    if linkageMetric == "jaccard":
-        observations = segmentBKTable
-    elif linkageMetric == "cosine":
-        observations = segmentCVTable
-    else:
-        observations = segmentCVTable
-    clusteringTable = np.zeros([np.size(segmentCVTable, 0), N_init])
-    Z = linkage(observations, method=linkageCriterion, metric=linkageMetric)
-    for i in np.arange(N_init):
-        clusteringTable[:, i] = cluster.hierarchy.cut_tree(Z, N_init - i).T + 1
-    k = N_init
-    return clusteringTable, k
-
-
-=======
->>>>>>> 67fbb8e98253b4ec296f10eb84be64cbc4a4605c
 def get_sim_mat(X):
     """Returns the similarity matrix based on cosine similarities.
     Arguments
@@ -647,17 +624,10 @@ def getSpectralClustering(
     bkT,
     cvT,
     number_speaker,
-<<<<<<< HEAD
-    n,
-    sigma,
-    percentile,
-    maxNrSpeakers,
-=======
     sigma,
     percentile,
     maxNrSpeakers,
     random_state = None,
->>>>>>> 67fbb8e98253b4ec296f10eb84be64cbc4a4605c
 ):
     if number_speaker is None:
         #  Compute affinity matrix.
@@ -668,29 +638,7 @@ def getSpectralClustering(
 
         (eigenvalues, eigenvectors) = compute_sorted_eigenvectors(affinity)
         # Get number of clusters.
-<<<<<<< HEAD
-        k = compute_number_of_clusters(eigenvalues, 15, 1e-1)
-        # Get spectral embeddings.
-        spectral_embeddings = eigenvectors[:, :k]
-
-        # Run K-Means++ on spectral embeddings.
-        # Note: The correct way should be using a K-Means implementation
-        # that supports customized distance measure such as cosine distance.
-        # This implemention from scikit-learn does NOT, which is inconsistent
-        # with the paper.
-
-        bestClusteringID = spectral_clustering(
-            affinity,
-            n_clusters=k,
-            eigen_solver=None,
-            random_state=None,
-            n_init=25,
-            eigen_tol=0.0,
-            assign_labels="kmeans",
-        )
-=======
         number_speaker = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-2)
->>>>>>> 67fbb8e98253b4ec296f10eb84be64cbc4a4605c
 
     else:
         #  Compute affinity matrix.
@@ -698,17 +646,6 @@ def getSpectralClustering(
 
         # Laplacian calculation
         affinity = sim_enhancement(simMatrix)
-<<<<<<< HEAD
-        bestClusteringID = spectral_clustering(
-            affinity,
-            n_clusters=number_speaker,
-            eigen_solver=None,
-            random_state=None,
-            n_init=25,
-            eigen_tol=0.0,
-            assign_labels="kmeans",
-        )
-=======
 
     bestClusteringID = spectral_clustering(
         affinity,
@@ -719,7 +656,6 @@ def getSpectralClustering(
         eigen_tol=0.0,
         assign_labels="kmeans",
     )
->>>>>>> 67fbb8e98253b4ec296f10eb84be64cbc4a4605c
 
     return bestClusteringID
 
