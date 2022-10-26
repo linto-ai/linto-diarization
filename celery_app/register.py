@@ -79,7 +79,7 @@ def service_info() -> dict:
         "service_type": SERVICE_TYPE,
         "service_language": service_lang,
         "queue_name": queue(),
-        "version": "1.2.0",
+        "version": "1.1.2",
         "info": os.environ.get("MODEL_INFO", "unknown"),
         "last_alive": int(time()),
         "concurrency": int(os.environ.get("CONCURRENCY")),
