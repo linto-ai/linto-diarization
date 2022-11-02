@@ -51,6 +51,7 @@ Fill the .env with your values.
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
+| SERVING_MODE | Specify launch mode | http |
 | CONCURRENCY | Number of HTTP worker* | 1+ |
 
 **2- Run the container**
@@ -87,6 +88,7 @@ Fill the .env with your values.
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
+| SERVING_MODE | Specify launch mode | task |
 | SERVICES_BROKER | Service broker uri | redis://my_redis_broker:6379 |
 | BROKER_PASS | Service broker password (Leave empty if there is no password) | my_password |
 | QUEUE_NAME | (Optionnal) overide the generated queue's name (See Queue name bellow) | my_queue |
