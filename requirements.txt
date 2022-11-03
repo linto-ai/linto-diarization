@@ -14,3 +14,4 @@ sklearn
 spafe
 pydub
 python_speech_features
+redis
