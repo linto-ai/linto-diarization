@@ -1,0 +1,16 @@
+version: '3.7'
+
+services:
+  my-diarization-service:
+    image: linto-platform-diarization:latest
+    volumes:
+      - /path/to/shared/folder:/opt/audio
+    env_file: .env
+    deploy:
+      replicas: 1
+    networks:
+      - your-net
+
+networks:
+  your-net:
+    external: true
