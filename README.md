@@ -97,8 +97,6 @@ Fill the .env with your values.
 | MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
 | CONCURRENCY | Number of worker (1 worker = 1 cpu) | >1 |
 
-> Do not use spaces or character "_" for SERVICE_NAME or language.
-
 **2- Fill the docker-compose.yml**
 
 `#docker-compose.yml`
