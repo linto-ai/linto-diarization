@@ -1,5 +1,5 @@
-FROM python:3.9
-LABEL maintainer="irebai@linagora.com, rbaraglia@linagora.com, wghezaiel@linagora.com"
+FROM python:3.10
+LABEL maintainer="rbaraglia@linagora.com, wghezaiel@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \
@@ -30,6 +30,10 @@ COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
+
+# Grep CURRENT VERSION
+COPY RELEASE.md ./
+RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 

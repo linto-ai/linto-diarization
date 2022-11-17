@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
+import logging
 import os
 import time
-import logging
 import uuid
-import numpy as np
+
 import librosa
-import webrtcvad
+import numpy as np
 
 import pyBK.diarizationFunctions as pybk
 
 # from spafe.features.mfcc import mfcc, imfcc
 from pydub import AudioSegment
 from python_speech_features import mfcc
+
+import pyBK.diarizationFunctions as pybk
 
 
 class SpeakerDiarization:

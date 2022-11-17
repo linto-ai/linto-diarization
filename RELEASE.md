@@ -1,3 +1,7 @@
+# 1.1.2
+- Added service registration.
+- Updated healthcheck to add heartbeat.
+- Added possibility to overide generated queue name.
 # 1.1.1
 - Fixed: silences (and short occurrences <1 sec between silences) occurring inside a speaker turn were postponed at the end of the speaker turn (and could be arbitrarily assigned to next speaker)
 - Fixed: make diarization deterministic (random seed is fixed)
