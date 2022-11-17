@@ -164,6 +164,7 @@ class SpeakerDiarization:
         seg = np.empty([0, 3])
         solutionDiff = np.diff(solutionVector)[0]
         first = 0
+        duration_silence = 0 # Silence that can be included inside a speaker turn
         for i in range(0, np.size(solutionDiff, 0)):
             if solutionDiff[i]:
                 last = i + 1
@@ -171,23 +172,24 @@ class SpeakerDiarization:
                 duration = (last - first) * frameshift
                 spklabel = solutionVector[0, last - 1]
                 silence = not spklabel or duration <= self.min_duration
-                if seg.shape[0] != 0 and (spklabel == seg[-1][2] or silence):
-                    seg[-1][1] += duration
-                elif not silence:
+                if seg.shape[0] != 0 and spklabel == seg[-1][2]: # Same speaker as before
+                    seg[-1][1] += duration + duration_silence
+                    duration_silence = 0
+                elif not silence: # New speaker
                     seg = np.vstack((seg, [start, duration, spklabel]))
-                else: # First silence
-                    continue
+                    duration_silence = 0
+                else: # Silence (within speaker turn or between speaker turns... we do not know yet)
+                    duration_silence += duration
                 first = i + 1
         last = np.size(solutionVector, 1)
         start = (first - 1) * frameshift
         duration = (last - first + 1) * frameshift
         spklabel = solutionVector[0, last - 1]
         silence = not spklabel or duration <= self.min_duration
-        if spklabel == seg[-1][2] or silence:
-            seg[-1][1] += duration
-        else:
+        if spklabel == seg[-1][2]:
+            seg[-1][1] += duration + duration_silence
+        elif not silence:
             seg = np.vstack((seg, [start, duration, spklabel]))
-        seg = np.vstack((seg, [dur, -1, -1])) # Why?
         return seg
 
     def format_response(self, segments: list) -> dict:
