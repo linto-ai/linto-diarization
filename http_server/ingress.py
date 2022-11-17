@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
+import json
+import logging
 import os
 from time import time
-import logging
-import json
 
-from flask import Flask, request, abort, Response, json
-
-from serving import GunicornServing
 from confparser import createParser
+from flask import Flask, Response, abort, json, request
+from serving import GunicornServing
 from swagger import setupSwaggerUI
 
 from diarization.processing.speakerdiarization import SpeakerDiarization

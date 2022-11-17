@@ -3,28 +3,27 @@
 # http://www.eurecom.fr/en/people/patino-jose
 # Contact: patino[at]eurecom[dot]fr, josempatinovillar[at]gmail[dot]com
 
-from scipy.ndimage import gaussian_filter
-from sklearn.neighbors import kneighbors_graph
-from scipy.sparse.csgraph import laplacian as csgraph_laplacian
-from scipy.sparse.csgraph import connected_components
-from scipy.sparse.linalg import eigsh, lobpcg
-from scipy.sparse import csr_matrix
-from scipy.linalg import eigh
-from scipy import sparse
-import scipy.sparse as sparse
-import scipy
-import sklearn
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.base import BaseEstimator, ClusterMixin
-from sklearn.cluster import KMeans
-from sklearn.utils import check_random_state, check_array, check_symmetric
-from sklearn.utils.validation import check_array
-from sklearn.utils.extmath import _deterministic_vector_sign_flip
-from sklearn.utils import check_random_state
 import numpy as np
+import scipy
+import scipy.sparse as sparse
+import sklearn
+from scipy import sparse
+from scipy.linalg import eigh
+from scipy.ndimage import gaussian_filter
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import connected_components
+from scipy.sparse.csgraph import laplacian as csgraph_laplacian
+from scipy.sparse.linalg import eigsh, lobpcg
 from scipy.spatial.distance import cdist
 from scipy.stats import multivariate_normal
 from sklearn import mixture
+from sklearn.base import BaseEstimator, ClusterMixin
+from sklearn.cluster import KMeans
+from sklearn.neighbors import kneighbors_graph
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.utils import check_array, check_random_state, check_symmetric
+from sklearn.utils.extmath import _deterministic_vector_sign_flip
+from sklearn.utils.validation import check_array
 
 __all__ = [
     "py_webrtcvad",

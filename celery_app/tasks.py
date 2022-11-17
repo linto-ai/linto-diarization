@@ -1,5 +1,6 @@
-import os
 import json
+import os
+
 from celery_app.celeryapp import celery
 from diarization.processing.speakerdiarization import SpeakerDiarization
 
