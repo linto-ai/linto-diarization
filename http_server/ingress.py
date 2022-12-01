@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import tempfile
 from time import time
 
 from confparser import createParser
@@ -40,7 +41,8 @@ def transcribe():
         logger.debug(request.headers.get("accept").lower())
         if not request.headers.get("accept").lower() == "application/json":
             raise ValueError("Not accepted header")
-
+        
+        
         # get input file
         if "file" in request.files.keys():
             spk_number = request.form.get("spk_number", None)
@@ -61,13 +63,17 @@ def transcribe():
     # Diarization
     try:
         diarizationworker = SpeakerDiarization()
+        file = request.files["file"]
+        tmp_file = os.path.join(tempfile.tempdir, file.filename)
+        file.save(tmp_file)
         result = diarizationworker.run(
-            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number
+            tmp_file, number_speaker=spk_number, max_speaker=max_spk_number
         )
+        os.remove(tmp_file)
     except Exception as e:
         return "Diarization has failed: {}".format(str(e)), 500
 
-    response = diarizationworker.format_response(result)
+    response = result
     logger.debug("Diarization complete (t={}s)".format(time() - start_t))
 
     return response, 200
