@@ -9,12 +9,15 @@ import numpy as np
 
 import pyBK.diarizationFunctions as pybk
 
-# from spafe.features.mfcc import mfcc, imfcc
+
 from pydub import AudioSegment
 from python_speech_features import mfcc
 
 import pyBK.diarizationFunctions as pybk
+import torchaudio
+from pyannote.audio import Pipeline, Audio
 
+from werkzeug.datastructures import FileStorage
 
 class SpeakerDiarization:
     def __init__(self):
@@ -27,6 +30,9 @@ class SpeakerDiarization:
             self.log.setLevel(logging.INFO)
 
         self.log.debug("Instanciating SpeakerDiarization")
+        self.method = "pyannote"  ###pyBK###pyannote####
+        if self.method == "pyannote":
+            self.pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1", use_auth_token="TODO")
         # MFCC FEATURES PARAMETERS
         self.frame_length_s = 0.03
         self.frame_shift_s = 0.01
@@ -83,15 +89,9 @@ class SpeakerDiarization:
 
         # Short segments to ignore
         self.min_duration = 0.3
-
+        
     def compute_feat_Librosa(self, audioFile):
         try:
-            if type(audioFile) is not str:
-                filename = str(uuid.uuid4())
-                file_path = "/tmp/" + filename
-                audioFile.save(file_path)
-            else:
-                file_path = audioFile
 
             self.sr = 16000
             audio = AudioSegment.from_wav(file_path)
@@ -273,9 +273,7 @@ class SpeakerDiarization:
         json["speakers"] = list(_speakers.values())
         json["segments"] = _segments
         return json
-
-    def run(self, audioFile, number_speaker: int = None, max_speaker: int = None):
-        self.log.debug(f"Starting diarization on file {audioFile}")
+    def run_pybk(self, audioFile, number_speaker, max_speaker):
         try:
             start_time = time.time()
             self.log.debug(
@@ -407,6 +405,9 @@ class SpeakerDiarization:
                     np.squeeze(finalClusteringTableResegmentation),
                     duration,
                 )
+                
+                self.format_response(segments)
+                
             else:
                 return [[0, duration, 1], [duration, -1, -1]]
 
@@ -429,4 +430,84 @@ class SpeakerDiarization:
             )
         else:
             self.log.debug(self.format_response(segments))
-            return segments
+        return self.format_response(segments)
+    
+    def run_pyannote(self, audioFile, number_speaker, max_speaker):
+        try:
+            start_time = time.time()
+            
+            
+            
+            info = torchaudio.info(audioFile)
+            duration=info.num_frames / info.sample_rate 
+
+            if number_speaker!= None:
+                diarization = self.pipeline(audioFile, num_speakers=number_speaker)
+            else:
+                diarization = self.pipeline(audioFile, min_speakers=2, max_speakers=max_speaker)
+            
+            diarization=diarization.support(collar= 3)
+            json = {}
+            _segments=[]
+            _speakers={}
+            seg_id = 1
+            spk_i = 1
+            spk_i_dict = {}
+            for segment, track, speaker in diarization.itertracks(yield_label=True):
+            
+                
+                formats={}
+                formats["seg_id"] =track
+                formats["seg_begin"]=segment.start
+                formats["seg_end"]=segment.end
+                formats["spk_id"]=speaker
+                if formats["spk_id"] not in _speakers:
+                    _speakers[formats["spk_id"]] = {}
+                    _speakers[formats["spk_id"]]["spk_id"] = formats["spk_id"]
+                    _speakers[formats["spk_id"]]["duration"] =formats["seg_end"]-formats["seg_begin"]
+
+                    _speakers[formats["spk_id"]]["nbr_seg"] = 1
+                else:
+                    _speakers[formats["spk_id"]]["duration"] += (formats["seg_end"]-formats["seg_begin"])
+
+                    _speakers[formats["spk_id"]]["nbr_seg"] += 1
+                    
+
+                _segments.append(formats)
+            
+            json["speakers"] = list(_speakers.values())
+            json["segments"] = _segments
+                            
+                                    
+            self.log.info(
+                "Speaker Diarization took %d[s] with a speed %0.2f[xRT]"
+                % (
+                    int(time.time() - start_time),
+                    float(int(time.time() - start_time)/ duration)
+                )
+            )
+        except ValueError as v:
+            self.log.error(v)
+            raise ValueError(
+                "Speaker diarization failed during processing the speech signal"
+            )
+        except Exception as e:
+            self.log.error(e)
+            raise Exception(
+                "Speaker diarization failed during processing the speech signal"
+            )
+    
+        return json
+
+
+    def run(self, file_path, number_speaker: int = None, max_speaker: int = None):
+        self.log.debug(f"Starting diarization on file {file_path}")
+        if self.method == "pyBK":
+            return self.run_pybk(file_path, number_speaker = number_speaker, max_speaker = max_speaker)
+        elif self.method == "pyannote":
+            return self.run_pyannote(file_path, number_speaker = number_speaker, max_speaker = max_speaker)
+            
+                
+        
+            
+

@@ -11,7 +11,8 @@ RUN apt-get update &&\
     curl \
     lsb-release && \
     apt-get clean
-
+RUN apt-get --yes install libsndfile1
+RUN pip install --force-reinstall --no-deps --no-cache-dir torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
 # Install pyBK dependencies
 RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
 RUN ./llvm.sh 11

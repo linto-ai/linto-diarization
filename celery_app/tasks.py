@@ -28,7 +28,7 @@ def diarization_task(
             number_speaker=speaker_count,
             max_speaker=max_speaker,
         )
-        response = diarizationworker.format_response(result)
+        response = result
     except Exception as e:
         raise Exception("Diarization has failed : {}".format(e))
 

@@ -11,7 +11,7 @@ webrtcvad>=2.0.10
 matplotlib
 scipy
 sklearn
-spafe
 pydub
 python_speech_features
 redis
+pyannote.audio
