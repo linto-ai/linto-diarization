@@ -2,8 +2,7 @@
 
 import json
 import logging
-import os
-import tempfile
+import io
 from time import time
 
 from confparser import createParser
@@ -64,12 +63,8 @@ def transcribe():
     try:
         diarizationworker = SpeakerDiarization()
         file = request.files["file"]
-        tmp_file = os.path.join(tempfile.tempdir, file.filename)
-        file.save(tmp_file)
-        result = diarizationworker.run(
-            tmp_file, number_speaker=spk_number, max_speaker=max_spk_number
-        )
-        os.remove(tmp_file)
+        buffer = io.BytesIO(file.read())
+        result = diarizationworker.run(buffer, number_speaker=spk_number, max_speaker=max_spk_number)
     except Exception as e:
         return "Diarization has failed: {}".format(str(e)), 500
 
