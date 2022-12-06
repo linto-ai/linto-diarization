@@ -16,8 +16,7 @@ from python_speech_features import mfcc
 import pyBK.diarizationFunctions as pybk
 import torchaudio
 from pyannote.audio import Pipeline, Audio
-
-from werkzeug.datastructures import FileStorage
+import io
 
 class SpeakerDiarization:
     def __init__(self):
@@ -435,11 +434,14 @@ class SpeakerDiarization:
     def run_pyannote(self, audioFile, number_speaker, max_speaker):
         try:
             start_time = time.time()
-            
-            
-            
-            info = torchaudio.info(audioFile)
-            duration=info.num_frames / info.sample_rate 
+
+            if isinstance(audioFile, io.IOBase):
+                # Workaround for https://github.com/pyannote/pyannote-audio/issues/1179
+                waveform, sample_rate = torchaudio.load(audioFile)
+                audioFile = {
+                    "waveform": waveform,
+                    "sample_rate": sample_rate,
+                }
 
             if number_speaker!= None:
                 diarization = self.pipeline(audioFile, num_speakers=number_speaker)
@@ -478,19 +480,16 @@ class SpeakerDiarization:
             json["speakers"] = list(_speakers.values())
             json["segments"] = _segments
                             
-                                    
-            self.log.info(
-                "Speaker Diarization took %d[s] with a speed %0.2f[xRT]"
-                % (
-                    int(time.time() - start_time),
-                    float(int(time.time() - start_time)/ duration)
+            if len(_segments) > 0:
+                duration = _segments[-1]["seg_end"]
+                self.log.info(
+                    "Speaker Diarization took %d[s] with a speed %0.2f[xRT]"
+                    % (
+                        int(time.time() - start_time),
+                        float(int(time.time() - start_time)/ duration),
+                    )
                 )
-            )
-        except ValueError as v:
-            self.log.error(v)
-            raise ValueError(
-                "Speaker diarization failed during processing the speech signal"
-            )
+
         except Exception as e:
             self.log.error(e)
             raise Exception(
