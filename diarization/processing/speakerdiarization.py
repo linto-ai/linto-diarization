@@ -31,7 +31,10 @@ class SpeakerDiarization:
         self.log.debug("Instanciating SpeakerDiarization")
         self.method = "pyannote"  ###pyBK###pyannote####
         if self.method == "pyannote":
-            self.pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization@2.1", use_auth_token="TODO")
+            self.pipeline = Pipeline.from_pretrained(
+                "/root/.cache/torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
+                cache_dir = "/root/.cache",
+            )
         # MFCC FEATURES PARAMETERS
         self.frame_length_s = 0.03
         self.frame_shift_s = 0.01
