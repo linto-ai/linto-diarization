@@ -9,10 +9,12 @@ RUN apt-get update &&\
     software-properties-common \
     wget \
     curl \
+    unzip \
     lsb-release && \
     apt-get clean
+
 RUN apt-get --yes install libsndfile1
-RUN pip install --force-reinstall --no-deps --no-cache-dir torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
+
 # Install pyBK dependencies
 RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
 RUN ./llvm.sh 11
@@ -42,6 +44,11 @@ ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 ENV OPENBLAS_NUM_THREADS=32
 ENV GOTO_NUM_THREADS=32
 ENV OMP_NUM_THREADS=32
+
+RUN mkdir -p /root/.cache
+RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/pyannote-2.1.zip
+RUN unzip pyannote-2.1.zip -d /root/.cache/
+RUN rm pyannote-2.1.zip
 
 HEALTHCHECK CMD ./healthcheck.sh
 
