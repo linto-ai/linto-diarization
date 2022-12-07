@@ -1,5 +1,5 @@
 FROM python:3.10
-LABEL maintainer="rbaraglia@linagora.com, wghezaiel@linagora.com"
+LABEL maintainer="rbaraglia@linagora.com, wghezaiel@linagora.com, jlouradour@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \
@@ -15,10 +15,7 @@ RUN apt-get update &&\
 
 RUN apt-get --yes install libsndfile1
 
-# Install pyBK dependencies
-RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
-RUN ./llvm.sh 11
-RUN export LLVM_CONFIG=/usr/bin/llvm-config-10
+
     
 # Install python dependencies
 COPY requirements.txt ./
@@ -31,7 +28,6 @@ COPY diarization /usr/src/app/diarization
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
-COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 
 # Grep CURRENT VERSION
