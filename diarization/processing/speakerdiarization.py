@@ -47,28 +47,27 @@ class SpeakerDiarization:
         json = {}
         _segments=[]
         _speakers={}
-        seg_id = 1
-        spk_i = 1
-        spk_i_dict = {}
-        for segment, track, speaker in diarization.itertracks(yield_label=True):
+        speaker_surnames = {}
+        for iseg, (segment, track, speaker) in enumerate(diarization.itertracks(yield_label=True)):
         
+            # Convert speaker names to spk1, spk2, etc.
+            if speaker not in speaker_surnames:
+                speaker_surnames[speaker] = "spk"+str(len(speaker_surnames)+1)
+            speaker = speaker_surnames[speaker]
             
             formats={}
-            formats["seg_id"] =track
-            formats["seg_begin"]=float("{:.2f}".format(segment.start))
-            formats["seg_end"]=float("{:.2f}".format(segment.end))
-            formats["spk_id"]=speaker
+            formats["seg_id"] = iseg + 1 # Note: we could use track, which is a string
+            formats["seg_begin"] = self.round(segment.start)
+            formats["seg_end"] = self.round(segment.end)
+            formats["spk_id"] = speaker
+            
             if formats["spk_id"] not in _speakers:
-                _speakers[speaker] = {}
-                _speakers[speaker]["spk_id"] = speaker
-                _speakers[speaker]["duration"] =float("{:.2f}".format(formats["seg_end"]-formats["seg_begin"]))
-
+                _speakers[speaker] = {"spk_id" : speaker}
+                _speakers[speaker]["duration"] = self.round(segment.end-segment.start)
                 _speakers[speaker]["nbr_seg"] = 1
             else:
-                _speakers[speaker]["duration"] += float("{:.2f}".format(formats["seg_end"]-formats["seg_begin"]))
-
+                _speakers[speaker]["duration"] += self.round(segment.end-segment.start)
                 _speakers[speaker]["nbr_seg"] += 1
-                
 
             _segments.append(formats)
         
@@ -84,10 +83,12 @@ class SpeakerDiarization:
                     float(int(time.time() - start_time)/ duration),
                 )
             )
-
-        
     
         return json
+
+    def round(self, number):
+        # Return number with precision 0.01
+        return float("{:.2f}".format(number))
 
 
     def run(self, file_path, number_speaker: int = None, max_speaker: int = None):
