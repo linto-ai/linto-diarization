@@ -3,20 +3,25 @@ LABEL maintainer="rbaraglia@linagora.com, wghezaiel@linagora.com, jlouradour@lin
 
 RUN apt-get update &&\
     apt-get install -y \
-    nano \
-    sox  \
-    ffmpeg \
-    software-properties-common \
-    wget \
     curl \
+    wget \
     unzip \
-    lsb-release && \
+    libsndfile1 \
+    && \
     apt-get clean
 
-RUN apt-get --yes install libsndfile1
+# Download pyannote models
+RUN mkdir -p $HOME/.cache
+RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/pyannote-2.1.zip
+RUN unzip pyannote-2.1.zip -d $HOME/.cache/
+RUN rm pyannote-2.1.zip
 
+RUN apt-get remove -y \
+    wget \
+    unzip \
+    && \
+    apt-get clean
 
-    
 # Install python dependencies
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
@@ -40,11 +45,6 @@ ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 ENV OPENBLAS_NUM_THREADS=32
 ENV GOTO_NUM_THREADS=32
 ENV OMP_NUM_THREADS=32
-
-RUN mkdir -p /root/.cache
-RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/pyannote-2.1.zip
-RUN unzip pyannote-2.1.zip -d /root/.cache/
-RUN rm pyannote-2.1.zip
 
 HEALTHCHECK CMD ./healthcheck.sh
 
