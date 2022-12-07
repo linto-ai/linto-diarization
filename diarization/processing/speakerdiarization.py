@@ -18,10 +18,13 @@ class SpeakerDiarization:
             self.log.setLevel(logging.INFO)
 
         self.log.debug("Instanciating SpeakerDiarization")
-                
+
+        home = os.path.expanduser('~')
+
         self.pipeline = Pipeline.from_pretrained(
-                "/root/.cache/torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
-                cache_dir = "/root/.cache")
+                home + "/.cache/torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
+                cache_dir = home + "/.cache"
+        )
     
     def run_pyannote(self, audioFile, number_speaker, max_speaker):
         try:
