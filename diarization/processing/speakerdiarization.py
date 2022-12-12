@@ -17,7 +17,7 @@ class SpeakerDiarization:
         else:
             self.log.setLevel(logging.INFO)
 
-        self.log.debug("Instanciating SpeakerDiarization")
+        self.log.info("Instanciating SpeakerDiarization")
         
         home = os.path.expanduser('~')
 

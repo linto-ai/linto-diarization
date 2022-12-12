@@ -31,6 +31,8 @@ def oas_docs():
     return "Not Implemented", 501
 
 
+diarizationworker = None
+
 @app.route("/diarization", methods=["POST"])
 def transcribe():
     try:
@@ -61,7 +63,9 @@ def transcribe():
 
     # Diarization
     try:
-        diarizationworker = SpeakerDiarization()
+        global diarizationworker
+        if diarizationworker is None:
+            diarizationworker = SpeakerDiarization()
         file = request.files["file"]
         buffer = io.BytesIO(file.read())
         result = diarizationworker.run(buffer, number_speaker=spk_number, max_speaker=max_spk_number)
