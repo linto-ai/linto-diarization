@@ -77,10 +77,10 @@ class SpeakerDiarization:
         if len(_segments) > 0:
             duration = _segments[-1]["seg_end"]
             self.log.info(
-                "Speaker Diarization took %d[s] with a speed %0.2f[xRT]"
+                "Speaker Diarization took %.3f[s] with a speed %0.2f[xRT]"
                 % (
-                    int(time.time() - start_time),
-                    float(int(time.time() - start_time)/ duration),
+                    time.time() - start_time,
+                    (time.time() - start_time)/ duration,
                 )
             )
     
