@@ -10,10 +10,10 @@ pipeline {
     stages{
         stage('Docker build for master branch'){
             when{
-                branch 'master'
+                branch 'pyannote'
             }
             steps {
-                echo 'Publishing latest'
+                echo 'Publishing latest pyannote'
                 script {
                     image = docker.build(env.DOCKER_HUB_REPO)
                     VERSION = sh(
@@ -23,29 +23,11 @@ pipeline {
 
                     docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
                         image.push("${VERSION}")
-                        image.push('latest')
+                        image.push('pyannote-latest')
                     }
                 }
             }
         }
 
-        stage('Docker build for next (unstable) branch'){
-            when{
-                branch 'next'
-            }
-            steps {
-                echo 'Publishing unstable'
-                script {
-                    image = docker.build(env.DOCKER_HUB_REPO)
-                    VERSION = sh(
-                        returnStdout: true, 
-                        script: "awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
-                    ).trim()
-                    docker.withRegistry('https://registry.hub.docker.com', env.DOCKER_HUB_CRED) {
-                        image.push('latest-unstable')
-                    }
-                }
-            }
-        }
     }// end stages
 }

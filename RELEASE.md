@@ -1,3 +1,6 @@
+# 2.0.0
+- Use PyAnnote (model 2.1) for diarization.
+
 # 1.1.2
 - Added service registration.
 - Updated healthcheck to add heartbeat.

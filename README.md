@@ -231,4 +231,4 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
-* [PyBK](https://github.com/josepatino/pyBK) diarization framework (License MIT).
+* [PyAnnote](https://github.com/pyannote/pyannote-audio) diarization framework (License MIT).
