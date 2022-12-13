@@ -18,7 +18,7 @@ class SpeakerDiarization:
             self.log.setLevel(logging.INFO)
 
         self.log.info("Instanciating SpeakerDiarization")
-        
+        self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
         home = os.path.expanduser('~')
 
         self.pipeline = Pipeline.from_pretrained(
@@ -43,7 +43,7 @@ class SpeakerDiarization:
         else:
             diarization = self.pipeline(audioFile, min_speakers=2, max_speakers=max_speaker)
         
-        diarization=diarization.support(collar= 3)
+        diarization=diarization.support(collar= self.tolerated_silence)
         json = {}
         _segments=[]
         _speakers={}
