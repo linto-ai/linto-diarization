@@ -91,7 +91,7 @@ Fill the .env with your values.
 | SERVING_MODE | Specify launch mode | task |
 | SERVICES_BROKER | Service broker uri | redis://my_redis_broker:6379 |
 | BROKER_PASS | Service broker password (Leave empty if there is no password) | my_password |
-| QUEUE_NAME | (Optionnal) overide the generated queue's name (See Queue name bellow) | my_queue |
+| QUEUE_NAME | (Optional) overide the generated queue's name (See Queue name bellow) | my_queue |
 | SERVICE_NAME | Service's name | diarization-ml |
 | LANGUAGE | Language code as a BCP-47 code | en-US or * or languages separated by "\|" |
 | MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
