@@ -1,21 +1,22 @@
 FROM python:3.10
-LABEL maintainer="rbaraglia@linagora.com, wghezaiel@linagora.com"
+LABEL maintainer="wghezaiel@linagora.com, jlouradour@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \
-    nano \
-    sox  \
-    ffmpeg \
-    software-properties-common \
-    wget \
     curl \
-    lsb-release && \
+    wget \
+    unzip \
+    libsndfile1 \
+    && \
     apt-get clean
 
-# Install pyBK dependencies
-RUN wget https://apt.llvm.org/llvm.sh && chmod +x llvm.sh
-RUN ./llvm.sh 11
-RUN export LLVM_CONFIG=/usr/bin/llvm-config-10
+
+
+RUN apt-get remove -y \
+    wget \
+    unzip \
+    && \
+    apt-get clean
     
 # Install python dependencies
 COPY requirements.txt ./
@@ -28,7 +29,9 @@ COPY diarization /usr/src/app/diarization
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
-COPY pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
+COPY simple_diarizer/cluster.py simple_diarizer/cluster.py
+COPY simple_diarizer/diarizer.py simple_diarizer/diarizer.py
+COPY simple_diarizer/utils.py simple_diarizer/utils.py
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 
 # Grep CURRENT VERSION

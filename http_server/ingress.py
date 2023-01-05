@@ -2,7 +2,7 @@
 
 import json
 import logging
-import os
+import io
 from time import time
 
 from confparser import createParser
@@ -31,6 +31,8 @@ def oas_docs():
     return "Not Implemented", 501
 
 
+diarizationworker = None
+
 @app.route("/diarization", methods=["POST"])
 def transcribe():
     try:
@@ -40,7 +42,8 @@ def transcribe():
         logger.debug(request.headers.get("accept").lower())
         if not request.headers.get("accept").lower() == "application/json":
             raise ValueError("Not accepted header")
-
+        
+        
         # get input file
         if "file" in request.files.keys():
             spk_number = request.form.get("spk_number", None)
