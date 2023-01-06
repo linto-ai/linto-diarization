@@ -3,20 +3,12 @@ LABEL maintainer="wghezaiel@linagora.com, jlouradour@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \
-    curl \
-    wget \
-    unzip \
-    libsndfile1 \
     && \
     apt-get clean
 
 
 
-RUN apt-get remove -y \
-    wget \
-    unzip \
-    && \
-    apt-get clean
+
     
 # Install python dependencies
 COPY requirements.txt ./
@@ -31,7 +23,6 @@ COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY simple_diarizer/cluster.py simple_diarizer/cluster.py
 COPY simple_diarizer/diarizer.py simple_diarizer/diarizer.py
-COPY simple_diarizer/utils.py simple_diarizer/utils.py
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 
 # Grep CURRENT VERSION
