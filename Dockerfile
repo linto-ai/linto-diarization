@@ -21,8 +21,6 @@ COPY diarization /usr/src/app/diarization
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
-COPY simple_diarizer/cluster.py simple_diarizer/cluster.py
-COPY simple_diarizer/diarizer.py simple_diarizer/diarizer.py
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 
 # Grep CURRENT VERSION

@@ -46,7 +46,7 @@ class SpeakerDiarization:
         if number_speaker!= None:
             diarization = self.diar.diarize(file_path, num_speakers=number_speaker,silence_tolerance=self.tolerated_silence)
         else:
-            diarization = self.diar.diarize(file_path, num_speakers=None, max_speakers=max_speaker,silence_tolerance=self.tolerated_silence)
+            diarization = self.diar.diarize(file_path, num_speakers=None, max_speakers=max_speaker,threshold=3e-1, silence_tolerance=self.tolerated_silence)
         
         
         

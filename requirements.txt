@@ -5,7 +5,5 @@ flask-swagger-ui>=3.36.0
 gunicorn>=20.1.0
 pyyaml>=5.4.1
 supervisor>=4.2.2
-scikit-learn>=1.0.2
-speechbrain>=0.5.11
-torchaudio>=0.10.1
 onnxruntime
+git+https://github.com/wghezaiel/simple_diarizer.git@max_speaker
