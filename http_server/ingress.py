@@ -2,7 +2,6 @@
 
 import json
 import logging
-import io
 from time import time
 
 from confparser import createParser
@@ -10,7 +9,7 @@ from flask import Flask, Response, abort, json, request
 from serving import GunicornServing
 from swagger import setupSwaggerUI
 
-from diarization.processing.speakerdiarization import SpeakerDiarization
+from diarization.processing import diarizationworker
 
 app = Flask("__diarization-serving__")
 
@@ -31,7 +30,6 @@ def oas_docs():
     return "Not Implemented", 501
 
 
-diarizationworker = None
 
 @app.route("/diarization", methods=["POST"])
 def transcribe():
@@ -42,8 +40,7 @@ def transcribe():
         logger.debug(request.headers.get("accept").lower())
         if not request.headers.get("accept").lower() == "application/json":
             raise ValueError("Not accepted header")
-        
-        
+
         # get input file
         if "file" in request.files.keys():
             spk_number = request.form.get("spk_number", None)
@@ -63,7 +60,6 @@ def transcribe():
 
     # Diarization
     try:
-        diarizationworker = SpeakerDiarization()
         result = diarizationworker.run(
             request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number
         )

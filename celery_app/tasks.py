@@ -2,7 +2,7 @@ import json
 import os
 
 from celery_app.celeryapp import celery
-from diarization.processing.speakerdiarization import SpeakerDiarization
+from diarization.processing import diarizationworker
 
 
 @celery.task(name="diarization_task")
@@ -22,7 +22,6 @@ def diarization_task(
 
     # Processing
     try:
-        diarizationworker = SpeakerDiarization()
         result = diarizationworker.run(
             os.path.join("/opt/audio", file_name),
             number_speaker=speaker_count,
