@@ -32,11 +32,7 @@ class SpeakerDiarization:
         if type(file_path) is not str:
 
             if self.tempfile is None:
-
-                self.tempfile = memory_tempfile.MemoryTempfile(
-                    preferred_paths=['/dev/shm'], filesystem_types=['tmpfs', 'shm'], fallback=False
-                )
-
+                self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
                 self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
 
             with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
