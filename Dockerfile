@@ -6,13 +6,9 @@ RUN apt-get update &&\
     && \
     apt-get clean
 
-
-
-
-    
 # Install python dependencies
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 # Define the main folder
 WORKDIR /usr/src/app

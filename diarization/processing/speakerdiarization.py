@@ -5,7 +5,7 @@ import time
 import uuid
 import torchaudio
 from simple_diarizer.diarizer import Diarizer
-import io
+import memory_tempfile
 
 class SpeakerDiarization:
     def __init__(self):
@@ -19,29 +19,34 @@ class SpeakerDiarization:
 
         self.log.info("Instanciating SpeakerDiarization")
         self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
-        home = os.path.expanduser('~')
         self.diar = Diarizer(
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
                   cluster_method='sc' # 'ahc' and 'sc' supported
                )
-        
+
+        self.tempfile = None
     
-    def run_simple_diarizer(self, audioFile, number_speaker, max_speaker):
+    def run_simple_diarizer(self, file_path, number_speaker, max_speaker):
         
         start_time = time.time()
 
         
-        if type(audioFile) is not str:
-                filename = str(uuid.uuid4())
-                file_path = "/tmp/" + filename
+        if type(file_path) is not str:
 
-                audioFile.save(file_path)
-        else:
-            file_path = audioFile
+            if self.tempfile is None:
+
+                self.tempfile = memory_tempfile.MemoryTempfile(
+                    preferred_paths=['/dev/shm'], filesystem_types=['tmpfs', 'shm'], fallback=False
+                )
+
+                self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
+
+            with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
+                file_path.save(ntf.name)
+                return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker)
         
         info = torchaudio.info(file_path)
-        duration=info.num_frames / info.sample_rate 
-        
+        duration=info.num_frames / info.sample_rate         
         
         if number_speaker!= None:
             diarization = self.diar.diarize(file_path, num_speakers=number_speaker,silence_tolerance=self.tolerated_silence)
