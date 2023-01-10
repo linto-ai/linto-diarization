@@ -2,8 +2,6 @@
 import logging
 import os
 import time
-import uuid
-import torchaudio
 from simple_diarizer.diarizer import Diarizer
 import memory_tempfile
 
@@ -45,16 +43,15 @@ class SpeakerDiarization:
                 file_path.save(ntf.name)
                 return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker)
         
-        info = torchaudio.info(file_path)
-        duration=info.num_frames / info.sample_rate         
-        
         if number_speaker!= None:
             diarization = self.diar.diarize(file_path, num_speakers=number_speaker,silence_tolerance=self.tolerated_silence)
         else:
             diarization = self.diar.diarize(file_path, num_speakers=None, max_speakers=max_speaker,threshold=3e-1, silence_tolerance=self.tolerated_silence)
-        
-        
-        
+
+        # Approximate estimation of duration for RTF
+        duration = diarization[-1]["end"] if len(diarization) > 0 else 1
+        # info = torchaudio.info(file_path)
+        # duration = info.num_frames / info.sample_rate
         self.log.info(
             "Speaker Diarization took %.3f[s] with a speed %0.2f[xRT]"
             % (
@@ -64,6 +61,7 @@ class SpeakerDiarization:
         )
             
         return diarization
+
     def format_response(self, segments: list) -> dict:
         #########################
         # Response format is
@@ -104,7 +102,6 @@ class SpeakerDiarization:
         seg_id = 1
         spk_i = 1
         spk_i_dict = {}
-
         
         for seg in segments:
         
@@ -116,35 +113,33 @@ class SpeakerDiarization:
                 spk_i_dict[seg['label']] = spk_i
                 spk_i += 1
 
-            segment["spk_id"] = "spk" + str(spk_i_dict[seg['label']])
-            segment["seg_begin"] = float("{:.2f}".format(seg['start']))
-            segment["seg_end"] = float("{:.2f}".format(seg['end']))
+            spk_id = "spk" + str(spk_i_dict[seg['label']])
+            segment["spk_id"] = spk_id
+            segment["seg_begin"] = self.round(seg['start'])
+            segment["seg_end"] = self.round(seg['end'])
 
-            if segment["spk_id"] not in _speakers:
-                _speakers[segment["spk_id"]] = {}
-                _speakers[segment["spk_id"]]["spk_id"] = segment["spk_id"]
-                _speakers[segment["spk_id"]]["duration"] = float(
-                    "{:.2f}".format(seg['end']-seg['start'])
-                )
-                _speakers[segment["spk_id"]]["nbr_seg"] = 1
+            if spk_id not in _speakers:
+                _speakers[spk_id] = {}
+                _speakers[spk_id]["spk_id"] = spk_id
+                _speakers[spk_id]["duration"] = seg['end']-seg['start']
+                _speakers[spk_id]["nbr_seg"] = 1
             else:
-                _speakers[segment["spk_id"]]["duration"] += (seg['end']-seg['start'])
-                _speakers[segment["spk_id"]]["nbr_seg"] += 1
-                _speakers[segment["spk_id"]]["duration"] = float(
-                    "{:.2f}".format(_speakers[segment["spk_id"]]["duration"])
-                )
-
-        
+                _speakers[spk_id]["duration"] += seg['end']-seg['start']
+                _speakers[spk_id]["nbr_seg"] += 1
 
             _segments.append(segment)
             seg_id += 1
+
+        for spkstat in _speakers.values():
+            spkstat["duration"] = self.round(spkstat["duration"])
 
         json["speakers"] = list(_speakers.values())
         json["segments"] = _segments
         return json
 
     
-
+    def round(self, x):
+        return round(x, 2)
 
     def run(self, file_path, number_speaker: int = None, max_speaker: int = None):
         self.log.debug(f"Starting diarization on file {file_path}")
