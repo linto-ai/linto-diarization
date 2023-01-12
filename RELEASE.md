@@ -1,3 +1,6 @@
+# 3.0.0
+- Use simple_diarization (Silero VAD, ECAPA-SC embeddings) for diarization.
+
 # 1.1.2
 - Added service registration.
 - Updated healthcheck to add heartbeat.

@@ -231,4 +231,4 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
-* [PyBK](https://github.com/josepatino/pyBK) diarization framework (License MIT).
+* [simple_diarizer](https://github.com/cvqluu/simple_diarizer) diarization framework (License GPL v3).
