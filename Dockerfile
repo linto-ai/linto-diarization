@@ -3,6 +3,7 @@ LABEL maintainer="wghezaiel@linagora.com, jlouradour@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \
+    ffmpeg \
     && \
     apt-get clean
 
