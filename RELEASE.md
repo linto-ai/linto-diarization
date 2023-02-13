@@ -1,3 +1,7 @@
+# 3.0.1
+- Fix possible crash (due to scipy version)
+- Improve VAD quality
+
 # 3.0.0
 - Use simple_diarization (Silero VAD, ECAPA-SC embeddings) for diarization.
 
