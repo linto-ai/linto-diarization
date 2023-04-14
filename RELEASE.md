@@ -1,3 +1,5 @@
+# 3.0.2
+- use ONNX in simple_diarizer
 # 3.0.1
 - Fix possible crash (due to scipy version)
 - Improve VAD quality
