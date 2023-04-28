@@ -6,10 +6,10 @@ from time import time
 
 from confparser import createParser
 from flask import Flask, Response, abort, json, request
-from serving import GunicornServing
+from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 
-from diarization.processing import diarizationworker
+from diarization.processing import diarizationworker, USE_GPU
 
 app = Flask("__diarization-serving__")
 
@@ -103,7 +103,14 @@ if __name__ == "__main__":
     except Exception as e:
         logger.warning("Could not setup swagger: {}".format(str(e)))
 
-    serving = GunicornServing(
+    if USE_GPU: # TODO: get rid of this?
+        serving_type = GeventServing
+        logger.debug("Serving with gevent")
+    else:
+        serving_type = GunicornServing
+        logger.debug("Serving with gunicorn")
+
+    serving = serving_type(
         app,
         {
             "bind": "{}:{}".format("0.0.0.0", args.service_port),
