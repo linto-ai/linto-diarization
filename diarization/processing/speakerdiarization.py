@@ -40,10 +40,13 @@ class SpeakerDiarization:
                 file_path.save(ntf.name)
                 return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker)
         
-        if number_speaker!= None:
-            diarization = self.diar.diarize(file_path, num_speakers=number_speaker,silence_tolerance=self.tolerated_silence)
-        else:
-            diarization = self.diar.diarize(file_path, num_speakers=None, max_speakers=max_speaker,threshold=3e-1, silence_tolerance=self.tolerated_silence)
+        diarization = self.diar.diarize(
+            file_path,
+            num_speakers=number_speaker,
+            max_speakers=max_speaker,
+            silence_tolerance=self.tolerated_silence,
+            threshold=3e-1
+        )
 
         # Approximate estimation of duration for RTF
         duration = diarization[-1]["end"] if len(diarization) > 0 else 1
