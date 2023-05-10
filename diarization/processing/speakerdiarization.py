@@ -142,6 +142,10 @@ class SpeakerDiarization:
         return round(x, 2)
 
     def run(self, file_path, number_speaker: int = None, max_speaker: int = None):
+
+        if number_speaker is None and max_speaker is None:
+            raise Exception("Either number_speaker or max_speaker must be set")            
+
         self.log.debug(f"Starting diarization on file {file_path}")
         try:
             return self.run_simple_diarizer(file_path, number_speaker = number_speaker, max_speaker = max_speaker)
