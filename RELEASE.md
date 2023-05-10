@@ -1,3 +1,6 @@
+# 3.0.4
+- Use NME normalization and auto-tuning
+
 # 3.0.3
 - Fix GPU with multiprocessing
 
