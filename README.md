@@ -231,4 +231,6 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
-* [simple_diarizer](https://github.com/cvqluu/simple_diarizer) diarization framework (License GPL v3).
+* [cvqluu/simple_diarizer](https://github.com/cvqluu/simple_diarizer) Diarization framework (License GPL v3).
+* [tango4j/Auto-Tuning-Spectral-Clustering](https://github.com/tango4j/Auto-Tuning-Spectral-Clustering) Auto-tuning spectral clustering (License MIT).
+* [desh2608/diarizer](https://github.com/desh2608/diarizer) Several diarization methods.
