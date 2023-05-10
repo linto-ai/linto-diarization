@@ -64,6 +64,8 @@ def transcribe():
             request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number
         )
     except Exception as e:
+        import traceback
+        logger.error(traceback.format_exc())
         return "Diarization has failed: {}".format(str(e)), 500
 
     response = diarizationworker.format_response(result)

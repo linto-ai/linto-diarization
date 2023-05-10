@@ -20,7 +20,7 @@ class SpeakerDiarization:
         self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
         self.diar = simple_diarizer.diarizer.Diarizer(
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
-                  cluster_method='sc' # 'ahc' and 'sc' supported
+                  cluster_method='nme-sc' # 'ahc' 'sc' and 'nme-sc' supported
                )
 
         self.tempfile = None
@@ -40,10 +40,13 @@ class SpeakerDiarization:
                 file_path.save(ntf.name)
                 return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker)
         
-        if number_speaker!= None:
-            diarization = self.diar.diarize(file_path, num_speakers=number_speaker,silence_tolerance=self.tolerated_silence)
-        else:
-            diarization = self.diar.diarize(file_path, num_speakers=None, max_speakers=max_speaker,threshold=3e-1, silence_tolerance=self.tolerated_silence)
+        diarization = self.diar.diarize(
+            file_path,
+            num_speakers=number_speaker,
+            max_speakers=max_speaker,
+            silence_tolerance=self.tolerated_silence,
+            threshold=3e-1
+        )
 
         # Approximate estimation of duration for RTF
         duration = diarization[-1]["end"] if len(diarization) > 0 else 1
