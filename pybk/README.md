@@ -1,7 +1,7 @@
-# LINTO-PLATFORM-DIARIZATION
-LinTO-platform-diarization is the [LinTO](https://linto.ai/) service for speaker diarization.
+# LinTO-diarization
+LinTO-diarization is the [LinTO](https://linto.ai/) service for speaker diarization.
 
-LinTO-platform-diarization can either be used as a standalone diarization service or deployed as a micro-services.
+LinTO-diarization can either be used as a standalone diarization service or deployed as a micro-services.
 
 * [Prerequisites](#pre-requisites)
 * [Deploy](#deploy)
@@ -27,23 +27,23 @@ The diarization only entry point in job mode are tasks posted on a Redis message
 Futhermore, to prevent large audio from transiting through the message broker, diarization uses a shared storage folder mounted on /opt/audio.
 
 ## Deploy
-linto-platform-diarization can be deployed:
+linto-diarization can be deployed:
 * As a standalone diarization service through an HTTP API.
 * As a micro-service connected to a message broker.
 
 **1- First step is to build the image:**
 
 ```bash
-git clone https://github.com/linto-ai/linto-platform-diarization.git
-cd linto-platform-diarization
-docker build . -t linto-platform-diarization:latest
+git clone https://github.com/linto-ai/linto-diarization.git
+cd linto-diarization
+docker build . -t linto-diarization-pybk:latest -f pybk/Dockerfile 
 ```
 
 ### HTTP
 
 **1- Fill the .env**
 ```bash
-cp .env_default_http .env
+cp pybk/.env_default_http pybk/.env
 ```
 
 Fill the .env with your values.
@@ -60,8 +60,8 @@ Fill the .env with your values.
 docker run --rm \
 -v SHARED_FOLDER:/opt/audio \
 -p HOST_SERVING_PORT:80 \
---env-file .env \
-linto-platform-diarization:latest
+--env-file pybk/.env \
+linto-diarization:latest
 ```
 
 This will run a container providing an http API binded on the host HOST_SERVING_PORT port.
@@ -74,13 +74,13 @@ This will run a container providing an http API binded on the host HOST_SERVING_
 > *diarization uses all CPU available, adding workers will share the available CPU thus decreasing processing speed for concurrent requests
 
 ### Using celery
->LinTO-platform-diarization can be deployed as a micro-service using celery. Used this way, the container spawn celery worker waiting for diarization task on a message broker.
+>LinTO-diarization can be deployed as a micro-service using celery. Used this way, the container spawn celery worker waiting for diarization task on a message broker.
 
 You need a message broker up and running at SERVICES_BROKER.
 
 **1- Fill the .env**
 ```bash
-cp .env_default_task .env
+cp pybk/.env_default_task pybk/.env
 ```
 
 Fill the .env with your values.
@@ -105,10 +105,10 @@ version: '3.7'
 
 services:
   punctuation-service:
-    image: linto-platform-diarization:latest
+    image: linto-diarization-pybk:latest
     volumes:
       - /path/to/shared/folder:/opt/audio
-    env_file: .env
+    env_file: pybk/.env
     deploy:
       replicas: 1
     networks:
@@ -194,7 +194,7 @@ The /docs route offers a OpenAPI/swagger interface.
 
 ### Through the message broker
 
-STT-Worker accepts requests with the following arguments:
+Diarization worker accepts requests with the following arguments:
 ```file_path: str, speaker_count: int (None), max_speaker: int (None)```
 
 * <ins>file_path</ins>: (str) Is the location of the file within the shared_folder. /.../SHARED_FOLDER/{file_path}
@@ -231,4 +231,4 @@ This project is developped under the AGPLv3 License (see LICENSE).
 
 ## Acknowlegment.
 
-* [PyAnnote](https://github.com/pyannote/pyannote-audio) diarization framework (License MIT).
+* [PyBK](https://github.com/josepatino/pyBK) diarization framework (License MIT).
