@@ -39,7 +39,8 @@ def transcribe():
         logger.debug(request.headers.get("accept").lower())
         if not request.headers.get("accept").lower() == "application/json":
             raise ValueError("Not accepted header")
-
+        
+        
         # get input file
         if "file" in request.files.keys():
             spk_number = request.form.get("spk_number", None)
@@ -67,7 +68,7 @@ def transcribe():
         logger.error(traceback.format_exc())
         return "Diarization has failed: {}".format(str(e)), 500
 
-    response = diarizationworker.format_response(result)
+    response = result
     logger.debug("Diarization complete (t={}s)".format(time() - start_t))
 
     return response, 200
