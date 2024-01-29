@@ -427,6 +427,6 @@ class SpeakerDiarization:
             raise Exception(
                 "Speaker diarization failed during processing the speech signal"
             )
-        else:
-            self.log.debug(self.format_response(segments))
-            return segments
+        segments = self.format_response(segments)
+        self.log.debug(segments)
+        return segments

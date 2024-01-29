@@ -29,8 +29,7 @@ class SpeakerDiarization:
         
         start_time = time.time()
 
-        
-        if type(file_path) is not str:
+        if type(file_path) is not str: # FileStorage
 
             if self.tempfile is None:
                 self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
@@ -60,7 +59,7 @@ class SpeakerDiarization:
             )
         )
             
-        return diarization
+        return self.format_response(diarization)
 
     def format_response(self, segments: list) -> dict:
         #########################
