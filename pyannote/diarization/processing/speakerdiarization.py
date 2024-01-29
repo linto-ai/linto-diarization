@@ -6,6 +6,7 @@ import uuid
 import torchaudio
 from pyannote.audio import Pipeline, Audio
 import io
+import memory_tempfile
 
 class SpeakerDiarization:
     def __init__(self):
@@ -25,6 +26,8 @@ class SpeakerDiarization:
                 home + "/.cache/torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
                 cache_dir = home + "/.cache"
         )
+        
+        self.tempfile = None
     
     def run_pyannote(self, audioFile, number_speaker, max_speaker):
         
@@ -37,6 +40,19 @@ class SpeakerDiarization:
                 "waveform": waveform,
                 "sample_rate": sample_rate,
             }
+
+        elif not isinstance(audioFile, str): # FileStorage
+
+            if self.tempfile is None:
+                self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
+                self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
+
+            with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
+                audioFile.save(ntf.name)
+                return self.run_pyannote(ntf.name, number_speaker, max_speaker)
+        
+        if isinstance(audioFile, str):
+            audioFile = {"audio": audioFile, "channel": 0}
 
         if number_speaker!= None:
             diarization = self.pipeline(audioFile, num_speakers=number_speaker)
@@ -92,7 +108,7 @@ class SpeakerDiarization:
 
 
     def run(self, file_path, number_speaker: int = None, max_speaker: int = None):
-        self.log.debug(f"Starting diarization on file {file_path}")
+        self.log.info(f"Starting diarization on file {file_path}")
         try:
             return self.run_pyannote(file_path, number_speaker = number_speaker, max_speaker = max_speaker)
         except Exception as e:
