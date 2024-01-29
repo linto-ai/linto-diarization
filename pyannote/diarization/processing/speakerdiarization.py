@@ -6,7 +6,8 @@ import uuid
 import torchaudio
 from pyannote.audio import Pipeline, Audio
 import io
-import memory_tempfile
+import werkzeug
+
 
 class SpeakerDiarization:
     def __init__(self):
@@ -26,8 +27,6 @@ class SpeakerDiarization:
                 home + "/.cache/torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
                 cache_dir = home + "/.cache"
         )
-        
-        self.tempfile = None
     
     def run_pyannote(self, audioFile, number_speaker, max_speaker):
         
@@ -41,18 +40,14 @@ class SpeakerDiarization:
                 "sample_rate": sample_rate,
             }
 
-        elif not isinstance(audioFile, str): # FileStorage
+        elif isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
+            audioFile = io.BytesIO(audioFile.read())
 
-            if self.tempfile is None:
-                self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
-                self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
-
-            with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
-                audioFile.save(ntf.name)
-                return self.run_pyannote(ntf.name, number_speaker, max_speaker)
-        
-        if isinstance(audioFile, str):
+        elif isinstance(audioFile, str):
             audioFile = {"audio": audioFile, "channel": 0}
+
+        else:
+            raise ValueError(f"Unsupported audio file type {type(audioFile  )}")
 
         if number_speaker!= None:
             diarization = self.pipeline(audioFile, num_speakers=number_speaker)

@@ -4,6 +4,7 @@ import os
 import time
 import simple_diarizer.diarizer
 import memory_tempfile
+import werkzeug
 
 class SpeakerDiarization:
     def __init__(self):
@@ -29,7 +30,7 @@ class SpeakerDiarization:
         
         start_time = time.time()
 
-        if type(file_path) is not str: # FileStorage
+        if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
 
             if self.tempfile is None:
                 self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)

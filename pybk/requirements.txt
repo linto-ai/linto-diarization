@@ -10,6 +10,7 @@ numpy>=1.26.3
 librosa>=0.8.0
 webrtcvad>=2.0.10
 matplotlib
+memory-tempfile
 scipy
 scikit-learn
 spafe
