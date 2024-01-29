@@ -30,7 +30,6 @@ def oas_docs():
     return "Not Implemented", 501
 
 
-
 @app.route("/diarization", methods=["POST"])
 def transcribe():
     try:
