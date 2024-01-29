@@ -7,7 +7,7 @@ on:
       - README.md
       - .github/workflows/dockerhub-description.yml
 jobs:
-  dockerHubDescription:
+  dockerHubDescriptionPybk:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -16,5 +16,27 @@ jobs:
       with:
         username: ${{ secrets.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_PASSWORD }}
-        repository: lintoai/linto-platform-diarization
-        readme-filepath: ./README.md
+        repository: lintoai/linto-diarization-pybk
+        readme-filepath: ./pybk/README.md
+  dockerHubDescriptionPyannote:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Docker Hub Description
+      uses: peter-evans/dockerhub-description@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        repository: lintoai/linto-diarization-pyannote
+        readme-filepath: ./pyannote/README.md
+  dockerHubDescriptionSimple:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Docker Hub Description
+      uses: peter-evans/dockerhub-description@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        repository: lintoai/linto-diarization-simple
+        readme-filepath: ./simple/README.md
