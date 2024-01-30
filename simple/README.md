@@ -145,7 +145,7 @@ The following information are registered:
   "service_language": $LANGUAGE,
   "queue_name": $QUEUE_NAME,
   "version": "1.2.0", # This repository's version
-  "info": "Multilingual diarization model",
+  "info": $MODEL_INFO,
   "last_alive": 65478213,
   "concurrency": 1
 }
@@ -195,11 +195,10 @@ The /docs route offers a OpenAPI/swagger interface.
 ### Through the message broker
 
 Diarization worker accepts requests with the following arguments:
-```file_path: str, speaker_count: int (None), max_speaker: int (None)```
 
-* <ins>file_path</ins>: (str) Is the location of the file within the shared_folder. /.../SHARED_FOLDER/{file_path}
-* <ins>speaker_count</ins>: (int default None) Fixed number of speakers.
-* <ins>max_speaker</ins>: (int default None) Max number of speaker if speaker_count=None. 
+* `file_path`: (str) Is the location of the file within the shared_folder. /.../SHARED_FOLDER/{file_path}
+* `speaker_count`: (int default None) Fixed number of speakers.
+* `max_speaker`: (int default None) Max number of speaker if speaker_count=None. 
 
 #### Return format
 On a successfull transcription the returned object is a json object structured as follow:
@@ -216,8 +215,8 @@ On a successfull transcription the returned object is a json object structured a
 }
 ```
 
-* The <ins>speakers</ins> field contains an arraw of speaker with overall duration and number of segments.
-* The <ins>segments</ins> field contains each audio segment with the associated speaker id start time and end time.
+* The `speakers` field contains an arraw of speaker with overall duration and number of segments.
+* The `segments` field contains each audio segment with the associated speaker id start time and end time.
 
 ## Test
 ### Curl

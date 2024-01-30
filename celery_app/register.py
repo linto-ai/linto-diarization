@@ -15,7 +15,7 @@ SERVICE_DISCOVERY_DB = 0
 SERVICE_TYPE = "diarization"
 
 service_name = os.environ.get("SERVICE_NAME", SERVICE_TYPE)
-service_lang = os.environ.get("LANGUAGE", "?")
+service_lang = os.environ.get("LANGUAGE", "*")
 host_name = gethostname()
 
 
@@ -79,7 +79,7 @@ def service_info() -> dict:
         "service_type": SERVICE_TYPE,
         "service_language": service_lang,
         "queue_name": queue(),
-        "version": "1.1.2",
+        "version": os.environ.get("VERSION", "unknown"),
         "info": os.environ.get("MODEL_INFO", "unknown"),
         "last_alive": int(time()),
         "concurrency": int(os.environ.get("CONCURRENCY")),
