@@ -83,7 +83,7 @@ def service_info() -> dict:
         "version": os.environ.get("VERSION", "unknown"),
         "info": os.environ.get("MODEL_INFO", "unknown"),
         "last_alive": int(time()),
-        "concurrency": int(os.environ.get("CONCURRENCY")),
+        "concurrency": int(os.environ.get("CONCURRENCY", 2)),
     }
 
 
