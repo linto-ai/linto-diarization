@@ -3,15 +3,16 @@ import os
 
 from celery_app.celeryapp import celery
 from diarization.processing import diarizationworker
-
+from diarization import logger
 
 @celery.task(name="diarization_task")
 def diarization_task(
     file_name: str, speaker_count: int = None, max_speaker: int = None
 ):
     """transcribe_task do a synchronous call to the transcribe worker API"""
-    if not os.path.isfile(os.path.join("/opt/audio", file_name)):
-        raise Exception("Could not find ressource {}".format(file_name))
+    file_path = os.path.join("/opt/audio", file_name)
+    if not os.path.isfile(file_path):
+        raise Exception("Could not find ressource {}".format(file_path))
 
     # Check parameters
     speaker_count = None if speaker_count == 0 else speaker_count
@@ -23,12 +24,14 @@ def diarization_task(
     # Processing
     try:
         result = diarizationworker.run(
-            os.path.join("/opt/audio", file_name),
+            file_path,
             number_speaker=speaker_count,
             max_speaker=max_speaker,
         )
-        response =  diarizationworker.format_response(result)
     except Exception as e:
-        raise Exception("Diarization has failed : {}".format(e))
+        import traceback
+        msg = f"{traceback.format_exc()}\nFailed to decode {file_path}"
+        logger.error(msg)
+        raise Exception(msg)  # from err
 
-    return response
+    return result
