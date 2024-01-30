@@ -43,7 +43,7 @@ docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
 
 **1- Fill the .env**
 ```bash
-cp pyannote/.env_default_http pyannote/.env
+cp .envdefault .env
 ```
 
 Fill the .env with your values.
@@ -60,7 +60,7 @@ Fill the .env with your values.
 docker run --rm \
 -v SHARED_FOLDER:/opt/audio \
 -p HOST_SERVING_PORT:80 \
---env-file pyannote/.env \
+--env-file .env \
 linto-diarization-pyannote:latest
 ```
 
@@ -80,7 +80,7 @@ You need a message broker up and running at SERVICES_BROKER.
 
 **1- Fill the .env**
 ```bash
-cp pyannote/.env_default_task pyannote/.env
+cp .envdefault .env
 ```
 
 Fill the .env with your values.
@@ -108,7 +108,7 @@ services:
     image: linto-diarization-pyannote:latest
     volumes:
       - /path/to/shared/folder:/opt/audio
-    env_file: pyannote/.env
+    env_file: .env
     deploy:
       replicas: 1
     networks:
