@@ -31,7 +31,8 @@ def register(is_heartbeat: bool = False) -> bool:
         host=host, port=int(port), db=SERVICE_DISCOVERY_DB, password=password
     )
 
-    res = r.json().set(f"service:{host_name}", Path.root_path(), service_info())
+    res = r.json()
+    res = res.set(f"service:{host_name}", Path.root_path(), service_info())
     if is_heartbeat:
         return res
     else:
@@ -69,7 +70,7 @@ def unregister() -> None:
 
 
 def queue() -> str:
-    return os.environ.get("QUEUE_NAME", f"{SERVICE_TYPE}_{service_lang}_{service_name}")
+    return service_name
 
 
 def service_info() -> dict:
