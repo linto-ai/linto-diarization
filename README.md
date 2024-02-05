@@ -72,10 +72,12 @@ docker run -it --rm \
     linto-diarization-simple:latest
 ```
 
-3. Testing with a given audio file can be done using python3 (with package `celery` installed).
+3. Testing with a given audio file can be done using python3 (with packages `celery` and `redis` installed).
    For example with the following command for the file `$HOME/test.wav` with 2 speakers
 
 ```bash
+pip3 install redis celery # if not installed yet
+
 python3 -c "\
 import celery; \
 import os; \
