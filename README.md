@@ -1,234 +1,90 @@
-# LINTO-PLATFORM-DIARIZATION
-LinTO-platform-diarization is the [LinTO](https://linto.ai/) service for speaker diarization.
+# LinTO-diarization
 
-LinTO-platform-diarization can either be used as a standalone diarization service or deployed as a micro-services.
+LinTO-diarization is the speaker diarization service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack),
+which can currently work with several technologies.
+The following families of technologies are currently supported (please refer to respective documentation for more details):
+* [PyBK](pybk/README.md) 
+* [PyAnnote](pyannote/README.md)
+* [simple_diarizer](simple/README.md)
 
-* [Prerequisites](#pre-requisites)
-* [Deploy](#deploy)
-  * [HTTP](#http)
-  * [MicroService](#micro-service)
-* [Usage](#usages)
-  * [HTTP API](#http-api)
-    * [/healthcheck](#healthcheck)
-    * [/diarization](#diarization)
-    * [/docs](#docs)
-  * [Using celery](#using-celery)
+LinTO-diarization can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
-* [License](#license)
-***
+## Quick test
 
-## Pre-requisites
+Below are examples of how to test diarization with "simple_diarizer", on Linux OS with docker installed.
 
-### Docker
-The transcription service requires docker up and running.
+"simple_diarizer" is the recommended diarization method.
+In what follow, you can replace "simple" by "pybk" or "pyannote" to try other methods.
 
-### (micro-service) Service broker and shared folder
-The diarization only entry point in job mode are tasks posted on a Redis message broker.
-Futhermore, to prevent large audio from transiting through the message broker, diarization uses a shared storage folder mounted on /opt/audio.
+### HTTP Server
 
-## Deploy
-linto-platform-diarization can be deployed:
-* As a standalone diarization service through an HTTP API.
-* As a micro-service connected to a message broker.
-
-**1- First step is to build the image:**
+1. If needed, build docker image 
 
 ```bash
-git clone https://github.com/linto-ai/linto-platform-diarization.git
-cd linto-platform-diarization
-docker build . -t linto-platform-diarization:latest
+docker build . -t linto-diarization-simple:latest -f simple/Dockerfile
 ```
 
-### HTTP
-
-**1- Fill the .env**
-```bash
-cp .env_default_http .env
-```
-
-Fill the .env with your values.
-
-**Parameters:**
-| Variables | Description | Example |
-|:-|:-|:-|
-| SERVING_MODE | Specify launch mode | http |
-| CONCURRENCY | Number of HTTP worker* | 1+ |
-
-**2- Run the container**
+2. Launch docker container (and keep it running)
 
 ```bash
-docker run --rm \
--v SHARED_FOLDER:/opt/audio \
--p HOST_SERVING_PORT:80 \
---env-file .env \
-linto-platform-diarization:latest
+docker run -it --rm \
+    -p 8080:80 \
+    --shm-size=1gb --tmpfs /run/user/0 \
+    --env SERVICE_MODE=http \
+    linto-diarization-simple:latest
 ```
 
-This will run a container providing an http API binded on the host HOST_SERVING_PORT port.
+3. Open the swagger in a browser: [http://localhost:8080/docs](http://localhost:8080/docs)
+   Unfold `/diarization` route and click "Try it out". Then
+   - Choose a file
+   - Specify either `spk_number` (Fixed number of speaker) or `max_speaker` (Max number of speakers)
+   - Click `Execute`
 
-**Parameters:**
-| Variables | Description | Example |
-|:-|:-|:-|
-| HOST_SERVING_PORT | Host serving port | 80 |
+### Celery worker
 
-> *diarization uses all CPU available, adding workers will share the available CPU thus decreasing processing speed for concurrent requests
+In the following we assume we want to test on an audio that is in `$HOME/test.wav`
 
-### Using celery
->LinTO-platform-diarization can be deployed as a micro-service using celery. Used this way, the container spawn celery worker waiting for diarization task on a message broker.
-
-You need a message broker up and running at SERVICES_BROKER.
-
-**1- Fill the .env**
-```bash
-cp .env_default_task .env
-```
-
-Fill the .env with your values.
-
-**Parameters:**
-| Variables | Description | Example |
-|:-|:-|:-|
-| SERVING_MODE | Specify launch mode | task |
-| SERVICES_BROKER | Service broker uri | redis://my_redis_broker:6379 |
-| BROKER_PASS | Service broker password (Leave empty if there is no password) | my_password |
-| QUEUE_NAME | (Optionnal) overide the generated queue's name (See Queue name bellow) | my_queue |
-| SERVICE_NAME | Service's name | diarization-ml |
-| LANGUAGE | Language code as a BCP-47 code | en-US or * or languages separated by "\|" |
-| MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
-| CONCURRENCY | Number of worker (1 worker = 1 cpu) | >1 |
-
-**2- Fill the docker-compose.yml**
-
-`#docker-compose.yml`
-```yaml
-version: '3.7'
-
-services:
-  punctuation-service:
-    image: linto-platform-diarization:latest
-    volumes:
-      - /path/to/shared/folder:/opt/audio
-    env_file: .env
-    deploy:
-      replicas: 1
-    networks:
-      - your-net
-
-networks:
-  your-net:
-    external: true
-```
-
-**3- Run with docker compose**
+1. If needed, build docker image 
 
 ```bash
-docker stack deploy --resolve-image always --compose-file docker-compose.yml your_stack
+docker build . -t linto-diarization-simple:latest -f simple/Dockerfile
 ```
 
-**Queue name:**
+2. Run Redis server
 
-By default the service queue name is generated using SERVICE_NAME and LANGUAGE: `diarization_{LANGUAGE}_{SERVICE_NAME}`.
-
-The queue name can be overided using the QUEUE_NAME env variable. 
-
-**Service discovery:**
-
-As a micro-service, the instance will register itself in the service registry for discovery. The service information are stored as a JSON object in redis's db0 under the id `service:{HOST_NAME}`.
-
-The following information are registered:
-
-```json
-{
-  "service_name": $SERVICE_NAME,
-  "host_name": $HOST_NAME,
-  "service_type": "diarization",
-  "service_language": $LANGUAGE,
-  "queue_name": $QUEUE_NAME,
-  "version": "1.2.0", # This repository's version
-  "info": "Multilingual diarization model",
-  "last_alive": 65478213,
-  "concurrency": 1
-}
+```bash
+docker run -it --rm \
+    -p 6379:6379 \
+    redis/redis-stack-server:latest \
+    redis-server /etc/redis-stack.conf --protected-mode no --bind 0.0.0.0 --loglevel debug
 ```
 
+3. Launch docker container, attaching the volume where is the audio file on which you will test
 
-
-## Usages
-
-### HTTP API
-
-#### /healthcheck
-
-Returns the state of the API
-
-Method: GET
-
-Returns "1" if healthcheck passes.
-
-#### /diarization
-
-Diarization API
-
-* Method: POST
-* Response content: application/json
-* File: A Wave file
-* spk_number: (integer - optional) Number of speakers. If empty, diarization will clusterize automatically.
-* max_speaker: (integer - optional) Max number of speakers if spk_number is unknown. 
-
-Return a json object when using structured as followed:
-```json
-{
-  "speakers": [
-      {"spk_id": "spk5", "duration": 2.0, "nbr_seg": 1},
-      ...
-  ],
-  "segments": [
-      {"seg_id": 1, "spk_id": "spk5", "seg_begin": 0.0, "seg_end": 2.0},
-      ...
-  ]
-}
+```bash
+docker run -it --rm \
+    -v $HOME:$HOME \
+    --env SERVICE_MODE=task \
+    --env SERVICE_NAME=diarization \
+    --env SERVICES_BROKER=redis://172.17.0.1:6379 \
+    --env BROKER_PASS= \
+    --env CONCURRENCY=2 \
+    linto-diarization-simple:latest
 ```
 
-#### /docs
-The /docs route offers a OpenAPI/swagger interface. 
+3. Testing with a given audio file can be done using python3 (with packages `celery` and `redis` installed).
+   For example with the following command for the file `$HOME/test.wav` with 2 speakers
 
-### Through the message broker
+```bash
+pip3 install redis celery # if not installed yet
 
-STT-Worker accepts requests with the following arguments:
-```file_path: str, speaker_count: int (None), max_speaker: int (None)```
-
-* <ins>file_path</ins>: (str) Is the location of the file within the shared_folder. /.../SHARED_FOLDER/{file_path}
-* <ins>speaker_count</ins>: (int default None) Fixed number of speakers.
-* <ins>max_speaker</ins>: (int default None) Max number of speaker if speaker_count=None. 
-
-#### Return format
-On a successfull transcription the returned object is a json object structured as follow:
-```json
-{
-  "speakers": [
-      {"spk_id": "spk5", "duration": 2.0, "nbr_seg": 1},
-      ...
-  ],
-  "segments": [
-      {"seg_id": 1, "spk_id": "spk5", "seg_begin": 0.0, "seg_end": 2.0},
-      ...
-  ]
-}
-```
-
-* The <ins>speakers</ins> field contains an arraw of speaker with overall duration and number of segments.
-* The <ins>segments</ins> field contains each audio segment with the associated speaker id start time and end time.
-
-## Test
-### Curl
-You can test you http API using curl:
-```bash 
-curl -X POST "http://YOUR_SERVICE:PORT/diarization" -H  "accept: application/json" -H  "Content-Type: multipart/form-data" -F "file=@YOUR_FILE.wav;type=audio/x-wav" -F "spk_number=NUMBER_OF_SPEAKERS"
+python3 -c "\
+import celery; \
+import os; \
+worker = celery.Celery(broker='redis://localhost:6379/0', backend='redis://localhost:6379/1'); \
+print(worker.send_task('diarization_task', (os.environ['HOME']+'/test.wav', 2, None), queue='diarization').get());\
+"
 ```
 
 ## License
 This project is developped under the AGPLv3 License (see LICENSE).
-
-## Acknowlegment.
-
-* [PyBK](https://github.com/josepatino/pyBK) diarization framework (License MIT).

@@ -15,7 +15,7 @@ SERVICE_DISCOVERY_DB = 0
 SERVICE_TYPE = "diarization"
 
 service_name = os.environ.get("SERVICE_NAME", SERVICE_TYPE)
-service_lang = os.environ.get("LANGUAGE", "?")
+service_lang = os.environ.get("LANGUAGE", "*")
 host_name = gethostname()
 
 
@@ -31,7 +31,8 @@ def register(is_heartbeat: bool = False) -> bool:
         host=host, port=int(port), db=SERVICE_DISCOVERY_DB, password=password
     )
 
-    res = r.json().set(f"service:{host_name}", Path.root_path(), service_info())
+    res = r.json()
+    res = res.set(f"service:{host_name}", Path.root_path(), service_info())
     if is_heartbeat:
         return res
     else:
@@ -69,7 +70,7 @@ def unregister() -> None:
 
 
 def queue() -> str:
-    return os.environ.get("QUEUE_NAME", f"{SERVICE_TYPE}_{service_lang}_{service_name}")
+    return service_name
 
 
 def service_info() -> dict:
@@ -79,10 +80,10 @@ def service_info() -> dict:
         "service_type": SERVICE_TYPE,
         "service_language": service_lang,
         "queue_name": queue(),
-        "version": "1.1.2",
+        "version": os.environ.get("VERSION", "unknown"),
         "info": os.environ.get("MODEL_INFO", "unknown"),
         "last_alive": int(time()),
-        "concurrency": int(os.environ.get("CONCURRENCY")),
+        "concurrency": int(os.environ.get("CONCURRENCY", 2)),
     }
 
 

@@ -15,6 +15,9 @@ from python_speech_features import mfcc
 
 import pyBK.diarizationFunctions as pybk
 
+import memory_tempfile
+import werkzeug
+
 
 class SpeakerDiarization:
     def __init__(self):
@@ -84,26 +87,29 @@ class SpeakerDiarization:
         # Short segments to ignore
         self.min_duration = 0.3
 
-    def compute_feat_Librosa(self, audioFile):
+        self.tempfile = None
+
+    def compute_feat_Librosa(self, file_path):
         try:
-            if type(audioFile) is not str:
-                filename = str(uuid.uuid4())
-                file_path = "/tmp/" + filename
-                audioFile.save(file_path)
-            else:
-                file_path = audioFile
+            if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
+
+                if self.tempfile is None:
+                    self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
+                    self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
+
+                with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
+                    file_path.save(ntf.name)
+                    return self.compute_feat_Librosa(ntf.name)
 
             self.sr = 16000
             audio = AudioSegment.from_wav(file_path)
             audio = audio.set_frame_rate(self.sr)
             audio = audio.set_channels(1)
             self.data = np.array(audio.get_array_of_samples())
-            if type(audioFile) is not str:
-                os.remove(file_path)
 
-            frame_length_inSample = self.frame_length_s * self.sr
-            hop = int(self.frame_shift_s * self.sr)
-            NFFT = int(2 ** np.ceil(np.log2(frame_length_inSample)))
+            # frame_length_inSample = self.frame_length_s * self.sr
+            # hop = int(self.frame_shift_s * self.sr)
+            # NFFT = int(2 ** np.ceil(np.log2(frame_length_inSample)))
 
             framelength_in_samples = self.frame_length_s * self.sr
             n_fft = int(2 ** np.ceil(np.log2(framelength_in_samples)))
@@ -427,6 +433,6 @@ class SpeakerDiarization:
             raise Exception(
                 "Speaker diarization failed during processing the speech signal"
             )
-        else:
-            self.log.debug(self.format_response(segments))
-            return segments
+        segments = self.format_response(segments)
+        self.log.debug(segments)
+        return segments
