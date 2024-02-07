@@ -22,7 +22,7 @@ celery.conf.broker_transport_options = {"visibility_timeout": float("inf")}
 celery.conf.update(
     {
         "task_routes": {
-            "diarization_task": {"queue": service_name},
+            "diarization_task": {"queue": "diarization"},
         }
     }
 )
