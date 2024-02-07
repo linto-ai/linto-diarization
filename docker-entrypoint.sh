@@ -42,7 +42,7 @@ else
         echo "Service registered"
 
         ## WORKER
-        celery --app=celery_app.celeryapp worker $OPT -Ofair -n ${SERVICE_NAME}_worker@%h --queues=$QUEUE -c $CONCURRENCY || exit $?
+        celery --app=celery_app.celeryapp worker $OPT -Ofair -n diarization_worker@%h --queues=$QUEUE -c $CONCURRENCY || exit $?
 
         ## UNREGISTERING
         python -c "from celery_app.register import unregister; unregister()" || exit $?
