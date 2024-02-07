@@ -24,7 +24,7 @@ paths:
       - "multipart/form-data"
       produces:
       - "application/json"
-      parameters: 
+      parameters:
       - name: "file"
         in: "formData"
         description: "Audio File - WaveFile"
@@ -32,7 +32,7 @@ paths:
         type: "file"
       - name: "spk_number"
         in: "formData"
-        description: "Fixed number of speaker (Optionnal)"
+        description: "Fixed number of speaker (Optional)"
         required: false
         type: integer
       - name: "max_speaker"

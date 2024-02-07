@@ -144,7 +144,7 @@ def get_py_webrtcvad_segments(vad_info, fs):
     sad_info = np.column_stack((starts[1], ends[1]))
     vad_index = vad_index[0]
 
-    segments = np.zeros_like(sad_info, dtype=np.float)
+    segments = np.zeros_like(sad_info, dtype=np.float32)
     for i in range(sad_info.shape[0]):
         segments[i][0] = float(vad_index[sad_info[i][0]]) / fs
         segments[i][1] = float(vad_index[sad_info[i][1]] + 1) / fs
@@ -180,7 +180,6 @@ def unravelMask(mask):
 
 def trainKBM(data, windowLength, windowRate, kbmSize):
     # Calculate number of gaussian components in the whole gaussian pool
-    print(data.astype)
     numberOfComponents = int(np.floor((np.size(data, 0) - windowLength) / windowRate))
     # Add new array for storing the mvn objects
     gmPool = []
@@ -391,8 +390,8 @@ def _graph_connected_component(graph, node_id):
     if sparse.issparse(graph):
         # speed up row-wise access to boolean connection mask
         graph = graph.tocsr()
-    connected_nodes = np.zeros(n_node, dtype=np.bool)
-    nodes_to_explore = np.zeros(n_node, dtype=np.bool)
+    connected_nodes = np.zeros(n_node, dtype=bool)
+    nodes_to_explore = np.zeros(n_node, dtype=bool)
     nodes_to_explore[node_id] = True
     for _ in range(n_node):
         last_num_component = connected_nodes.sum()

@@ -2,15 +2,14 @@
 
 import json
 import logging
-import os
 from time import time
 
 from confparser import createParser
 from flask import Flask, Response, abort, json, request
-from serving import GunicornServing
+from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 
-from diarization.processing.speakerdiarization import SpeakerDiarization
+from diarization.processing import diarizationworker, USE_GPU
 
 app = Flask("__diarization-serving__")
 
@@ -40,7 +39,8 @@ def transcribe():
         logger.debug(request.headers.get("accept").lower())
         if not request.headers.get("accept").lower() == "application/json":
             raise ValueError("Not accepted header")
-
+        
+        
         # get input file
         if "file" in request.files.keys():
             spk_number = request.form.get("spk_number", None)
@@ -60,14 +60,15 @@ def transcribe():
 
     # Diarization
     try:
-        diarizationworker = SpeakerDiarization()
         result = diarizationworker.run(
             request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number
         )
     except Exception as e:
+        import traceback
+        logger.error(traceback.format_exc())
         return "Diarization has failed: {}".format(str(e)), 500
 
-    response = diarizationworker.format_response(result)
+    response = result
     logger.debug("Diarization complete (t={}s)".format(time() - start_t))
 
     return response, 200
@@ -104,7 +105,14 @@ if __name__ == "__main__":
     except Exception as e:
         logger.warning("Could not setup swagger: {}".format(str(e)))
 
-    serving = GunicornServing(
+    if USE_GPU: # TODO: get rid of this?
+        serving_type = GeventServing
+        logger.debug("Serving with gevent")
+    else:
+        serving_type = GunicornServing
+        logger.debug("Serving with gunicorn")
+
+    serving = serving_type(
         app,
         {
             "bind": "{}:{}".format("0.0.0.0", args.service_port),
