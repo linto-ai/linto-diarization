@@ -70,7 +70,7 @@ def unregister() -> None:
 
 
 def queue() -> str:
-    return service_name
+    return os.environ.get("QUEUE_NAME", service_name)
 
 
 def service_info() -> dict:
