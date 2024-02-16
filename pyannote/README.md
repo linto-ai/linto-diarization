@@ -58,18 +58,21 @@ Fill the .env with your values.
 
 ```bash
 docker run --rm \
--v SHARED_FOLDER:/opt/audio \
--p HOST_SERVING_PORT:80 \
+-v <SHARED_FOLDER>:/opt/audio \
+-p <HOST_SERVING_PORT>:80 \
 --env-file .env \
 linto-diarization-pyannote:latest
 ```
 
-This will run a container providing an http API binded on the host HOST_SERVING_PORT port.
+You may also want to add ```--gpus all``` to enable GPU capabilities
+(and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
+
+This will run a container providing an http API binded on the host `<HOST_SERVING_PORT>` port.
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
-| HOST_SERVING_PORT | Host serving port | 80 |
+| `<HOST_SERVING_PORT>` | Host serving port | 80 |
 
 > *diarization uses all CPU available, adding workers will share the available CPU thus decreasing processing speed for concurrent requests
 
@@ -96,6 +99,7 @@ Fill the .env with your values.
 | LANGUAGE | Language code as a BCP-47 code | en-US or * or languages separated by "\|" |
 | MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
 | CONCURRENCY | Number of worker (1 worker = 1 cpu) | >1 |
+| CUDA_VISIBLE_DEVICES | (Optional) GPU device index to use (empty list to force no GPU). We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 
 **2- Fill the docker-compose.yml**
 
@@ -127,9 +131,9 @@ docker stack deploy --resolve-image always --compose-file docker-compose.yml you
 
 **Queue name:**
 
-By default the service queue name is generated using SERVICE_NAME and LANGUAGE: `diarization_{LANGUAGE}_{SERVICE_NAME}`.
+By default the service queue name is generated as `SERVICE_NAME`.
 
-The queue name can be overided using the QUEUE_NAME env variable. 
+The queue name can be overided using the `QUEUE_NAME` env variable. 
 
 **Service discovery:**
 
