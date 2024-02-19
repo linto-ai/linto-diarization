@@ -1,6 +1,6 @@
 # LinTO-diarization
 
-LinTO-diarization is the speaker diarization service within the [LinTO stack](https://github.com/linto-ai/linto-platform-stack),
+LinTO-diarization is an API for Speaker Diarization,
 which can currently work with several technologies.
 The following families of technologies are currently supported (please refer to respective documentation for more details):
 * [PyBK](pybk/README.md) 
