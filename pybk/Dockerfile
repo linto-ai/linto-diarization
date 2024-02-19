@@ -1,5 +1,5 @@
 FROM python:3.10
-LABEL maintainer="hello@into.ai, wghezaiel@linagora.com, jlouradour@linagora.com"
+LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com"
 
 RUN apt-get update &&\
     apt-get install -y \
