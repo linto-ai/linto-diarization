@@ -2,9 +2,14 @@
 import logging
 import os
 import time
-import simple_diarizer.diarizer
+import os, sys
 import memory_tempfile
 import werkzeug
+sys.path.append("/usr/src/app/diarization/simple_diarizer/simple_diarizer")
+from diarizer import Diarizer
+
+
+
 
 class SpeakerDiarization:
     def __init__(self):
@@ -16,10 +21,10 @@ class SpeakerDiarization:
         else:
             self.log.setLevel(logging.INFO)
 
-        self.log.info(f"Simple diarization version {simple_diarizer.__version__}")
+        #self.log.info(f"Simple diarization version {simple_diarizer.__version__}")
         self.log.info("Instanciating SpeakerDiarization")
         self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
-        self.diar = simple_diarizer.diarizer.Diarizer(
+        self.diar = Diarizer(
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
                   cluster_method='nme-sc' # 'ahc' 'sc' and 'nme-sc' supported
                )
