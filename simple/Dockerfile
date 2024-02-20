@@ -19,7 +19,7 @@ COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY simple/diarization /usr/src/app/diarization
-
+RUN cd /usr/src/app/diarization/simple_diarizer && python3 setup.py install
 # Grep CURRENT VERSION
 COPY simple/RELEASE.md ./
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
