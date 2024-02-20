@@ -1,0 +1,3 @@
+[submodule "simple/diarization/simple_diarizer"]
+	path = simple/diarization/simple_diarizer
+	url = https://github.com/cvqluu/simple_diarizer.git
