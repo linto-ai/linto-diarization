@@ -2,9 +2,9 @@
 import logging
 import os
 import time
-import simple_diarizer.diarizer
 import memory_tempfile
 import werkzeug
+import simple_diarizer.diarizer
 
 class SpeakerDiarization:
     def __init__(self):
