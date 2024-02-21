@@ -6,9 +6,6 @@ import memory_tempfile
 import werkzeug
 import simple_diarizer.diarizer
 
-
-
-
 class SpeakerDiarization:
     def __init__(self):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
