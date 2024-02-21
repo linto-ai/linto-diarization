@@ -12,6 +12,7 @@ WORKDIR /usr/src/app
 
 # Install python dependencies
 COPY simple/requirements.txt ./
+COPY simple/diarization/processing/simple_diarizer_fork/requirements.txt ./diarization/processing/simple_diarizer_fork/
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY celery_app /usr/src/app/celery_app
@@ -19,7 +20,7 @@ COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY simple/diarization /usr/src/app/diarization
-RUN cd /usr/src/app/diarization/simple_diarizer && python3 setup.py install
+
 # Grep CURRENT VERSION
 COPY simple/RELEASE.md ./
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
