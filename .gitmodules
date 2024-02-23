@@ -1,4 +1,4 @@
 [submodule "simple/diarization/simple_diarizer"]
-	path = simple/diarization/simple_diarizer
+	path = simple/diarization/processing/simple_diarizer_fork
 	url = git@github.com:linto-ai/simple_diarizer.git
 	branch = NME_SC
