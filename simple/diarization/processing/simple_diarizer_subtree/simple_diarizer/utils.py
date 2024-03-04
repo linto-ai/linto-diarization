@@ -2,11 +2,8 @@ import datetime
 import subprocess
 from pprint import pprint
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torchaudio
-from IPython.display import Audio, display
-
 
 ##################
 # Audio utils
@@ -83,6 +80,7 @@ def waveplot(signal, fs, start_idx=0, figsize=(5, 3), color="tab:blue"):
     Outputs:
         - Returns the matplotlib figure
     """
+    import matplotlib.pyplot as plt
     plt.figure(figsize=figsize)
     start_time = start_idx / fs
     end_time = start_time + (len(signal) / fs)
@@ -113,6 +111,7 @@ def combined_waveplot(signal, fs, segments, figsize=(10, 3), tick_interval=60):
         Outputs:
             - The matplotlib figure
     """
+    import matplotlib.pyplot as plt
     plt.figure(figsize=figsize)
     for seg in segments:
         start = seg["start_sample"]
@@ -153,6 +152,8 @@ def waveplot_perspeaker(signal, fs, segments):
 
     Designed to be run in a jupyter notebook
     """
+    import matplotlib.pyplot as plt
+    from IPython.display import Audio, display
     for seg in segments:
         start = seg["start_sample"]
         end = seg["end_sample"]

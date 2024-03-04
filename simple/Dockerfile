@@ -12,6 +12,7 @@ WORKDIR /usr/src/app
 
 # Install python dependencies
 COPY simple/requirements.txt ./
+COPY simple/diarization/processing/simple_diarizer_subtree/requirements.txt ./diarization/processing/simple_diarizer_subtree/
 RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY celery_app /usr/src/app/celery_app

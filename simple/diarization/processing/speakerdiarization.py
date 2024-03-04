@@ -2,9 +2,13 @@
 import logging
 import os
 import time
-import simple_diarizer.diarizer
 import memory_tempfile
 import werkzeug
+
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer_subtree"))
+import simple_diarizer
+import simple_diarizer.diarizer
 
 class SpeakerDiarization:
     def __init__(self):

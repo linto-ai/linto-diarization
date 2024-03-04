@@ -9,7 +9,7 @@ import torchaudio
 from speechbrain.pretrained import EncoderClassifier
 from tqdm.autonotebook import tqdm
 
-from .cluster import cluster_AHC, cluster_SC
+from .cluster import cluster_AHC, cluster_SC, cluster_NME_SC
 from .utils import check_wav_16khz_mono, convert_wavfile
 
 
@@ -25,12 +25,16 @@ class Diarizer:
         assert cluster_method in [
             "ahc",
             "sc",
-        ], "Only ahc and sc in the supported clustering options"
+            "nme-sc",
+        ], "Only ahc,sc and nme-sc in the supported clustering options"
 
         if cluster_method == "ahc":
             self.cluster = cluster_AHC
         if cluster_method == "sc":
             self.cluster = cluster_SC
+        if cluster_method == "nme-sc":
+            self.cluster = cluster_NME_SC
+
 
         self.vad_model, self.get_speech_ts = self.setup_VAD()
 
@@ -56,7 +60,7 @@ class Diarizer:
 
     def setup_VAD(self):
         model, utils = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad", model="silero_vad"
+            repo_or_dir="snakers4/silero-vad", model="silero_vad", onnx=True
         )
         # force_reload=True)
 
@@ -182,6 +186,7 @@ class Diarizer:
         self,
         wav_file,
         num_speakers=2,
+        max_speakers=None,
         threshold=None,
         silence_tolerance=0.2,
         enhance_sim=True,
@@ -194,6 +199,7 @@ class Diarizer:
             Inputs:
                 wav_file (path): Path to input audio file
                 num_speakers (int) or NoneType: Number of speakers to cluster to
+                max_speakers (int)
                 threshold (float) or NoneType: Threshold to cluster to if
                                                 num_speakers is not defined
                 silence_tolerance (float): Same speaker segments which are close enough together
@@ -229,10 +235,10 @@ class Diarizer:
                             'cluster_labels': cluster_labels (list): cluster label for each embed in embeds
                             }
 
-        Uses AHC/SC to cluster
+        Uses AHC/SC/NME-SC to cluster
         """
         recname = os.path.splitext(os.path.basename(wav_file))[0]
-
+        
         if check_wav_16khz_mono(wav_file):
             signal, fs = torchaudio.load(wav_file)
         else:
@@ -249,25 +255,34 @@ class Diarizer:
         print("Running VAD...")
         speech_ts = self.vad(signal[0])
         print("Splitting by silence found {} utterances".format(len(speech_ts)))
-        assert len(speech_ts) >= 1, "Couldn't find any speech during VAD"
+        #assert len(speech_ts) >= 1, "Couldn't find any speech during VAD"
 
-        print("Extracting embeddings...")
-        embeds, segments = self.recording_embeds(signal, fs, speech_ts)
+        if len(speech_ts) >= 1:
+            print("Extracting embeddings...")
+            embeds, segments = self.recording_embeds(signal, fs, speech_ts)
 
-        print("Clustering to {} speakers...".format(num_speakers))
-        cluster_labels = self.cluster(
-            embeds,
-            n_clusters=num_speakers,
-            threshold=threshold,
-            enhance_sim=enhance_sim,
-        )
+            [w,k]=embeds.shape
+            if  w >= 2:
+                print('Clustering to {} speakers...'.format(num_speakers))
+                cluster_labels = self.cluster(embeds, n_clusters=num_speakers,max_speakers=max_speakers,
+                                            threshold=threshold, enhance_sim=enhance_sim)
 
-        print("Cleaning up output...")
-        cleaned_segments = self.join_segments(cluster_labels, segments)
-        cleaned_segments = self.make_output_seconds(cleaned_segments, fs)
-        cleaned_segments = self.join_samespeaker_segments(
-            cleaned_segments, silence_tolerance=silence_tolerance
-        )
+                
+                
+                cleaned_segments = self.join_segments(cluster_labels, segments)
+                cleaned_segments = self.make_output_seconds(cleaned_segments, fs)
+                cleaned_segments = self.join_samespeaker_segments(cleaned_segments,
+                                                                silence_tolerance=silence_tolerance)
+                
+                
+            else:
+                cluster_labels =[ 1]
+                cleaned_segments = self.join_segments(cluster_labels, segments)
+                cleaned_segments = self.make_output_seconds(cleaned_segments, fs)
+                
+        else:
+            cleaned_segments = []
+            
         print("Done!")
         if outfile:
             self.rttm_output(cleaned_segments, recname, outfile=outfile)
@@ -281,9 +296,9 @@ class Diarizer:
                     "cluster_labels": cluster_labels} 
 
     @staticmethod
-    def rttm_output(segments, recname, outfile=None):
+    def rttm_output(segments, recname, outfile=None, channel=0):
         assert outfile, "Please specify an outfile"
-        rttm_line = "SPEAKER {} 0 {} {} <NA> <NA> {} <NA> <NA>\n"
+        rttm_line = "SPEAKER {} "+str(channel)+" {} {} <NA> <NA> {} <NA> <NA>\n"
         with open(outfile, "w") as fp:
             for seg in segments:
                 start = seg["start"]
