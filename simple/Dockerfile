@@ -1,3 +1,5 @@
+FROM nvidia/cuda:11.6.1-runtime-ubuntu20.04
+RUN nvidia-smi
 FROM python:3.10
 LABEL maintainer="contact@linto.ai wghezaiel@linagora.com, jlouradour@linagora.com"
 
