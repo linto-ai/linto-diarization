@@ -1,5 +1,4 @@
 FROM nvidia/cuda:11.6.1-runtime-ubuntu20.04
-RUN nvidia-smi
 FROM python:3.10
 LABEL maintainer="contact@linto.ai wghezaiel@linagora.com, jlouradour@linagora.com"
 
@@ -27,7 +26,8 @@ COPY simple/RELEASE.md ./
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
-
+ENV NVIDIA_VISIBLE_DEVICES all
+ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
 # Limits on OPENBLAS number of thread prevent SEGFAULT on machine with a large number of cpus
 ENV OPENBLAS_NUM_THREADS=32
 ENV GOTO_NUM_THREADS=32
