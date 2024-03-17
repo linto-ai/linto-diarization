@@ -8,3 +8,6 @@ BROKER_PASS=
 
 # CONCURRENCY
 CONCURRENCY=2
+
+# Wether to use GPU or not --> 1: forces CPU, 0: uses GPU if available
+FORCE_CPU=0

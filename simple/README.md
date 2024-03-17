@@ -21,12 +21,15 @@ LinTO-diarization can either be used as a standalone diarization service or depl
 
 ### Docker
 
+**This Docker image is built upon _nvidia/cuda:12.3.2-runtime-ubuntu22.04_**
+
 The transcription service requires [docker](https://www.docker.com/products/docker-desktop/) up and running.
 
 For GPU capabilities, it is also needed to install
 [nvidia-container-toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
 
 When using GPU, the consumed VRAM should be around 1GB per worker.
+
 
 ### (micro-service) Service broker and shared folder
 The diarization only entry point in job mode are tasks posted on a Redis message broker.
@@ -59,6 +62,7 @@ Fill the .env with your values.
 |:-|:-|:-|
 | `SERVING_MODE` | Specify launch mode | `http` \| `task` |
 | `CONCURRENCY` | Number of HTTP worker* | 1+ |
+| `FORCE_CPU` | Wether to use GPU or not (i.e : using nvidia runtime as default) --> 1: forces CPU, 0: uses GPU if available | `1` \| `0` |
 
 **2- Run the container**
 
@@ -72,6 +76,7 @@ linto-diarization-simple:latest
 
 You may also want to add ```--gpus all``` to enable GPU capabilities
 (and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards).
+
 
 This will run a container providing an http API binded on the host `<HOST_SERVING_PORT>` port.
 
@@ -106,6 +111,7 @@ Fill the .env with your values.
 | LANGUAGE | Language code as a BCP-47 code | en-US or * or languages separated by "\|" |
 | MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
 | CUDA_VISIBLE_DEVICES | (Optional) GPU device index to use (empty list to force no GPU). We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
+| FORCE_CPU | Wether to use GPU or not (i.e : using nvidia runtime as default) --> 1: forces CPU, 0: uses GPU if available | `1` \| `0` |
 
 **2- Fill the docker-compose.yml**
 
