@@ -1,39 +1,57 @@
-FROM nvidia/cuda:11.6.1-runtime-ubuntu20.04
-FROM python:3.10
-LABEL maintainer="contact@linto.ai wghezaiel@linagora.com, jlouradour@linagora.com"
+# base stage target - common dependencies
+FROM python:3.10-slim as base
 
-RUN apt-get update &&\
-    apt-get install -y \
-    ffmpeg \
-    && \
-    apt-get clean
-
-# Define the main folder
+# Set a common work directory
 WORKDIR /usr/src/app
 
-# Install python dependencies
-COPY simple/requirements.txt ./
-RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
+# Installing dependencies
 
+# Copy application code
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY simple/diarization /usr/src/app/diarization
-
-# Grep CURRENT VERSION
+COPY simple/requirements.txt /usr/src/app/
 COPY simple/RELEASE.md ./
+
+############################################################################################################
+
+# Here we might build a specific image for the CPU target, use different dependencies, entrypoints, etc.
+# using  : FROM base as cpu
+# not relevant for this dockerfile
+
+############################################################################################################
+
+# gpu stage target - python app with nvidia/cuda base image
+FROM nvidia/cuda:12.3.2-base-ubuntu22.04 as gpu
+LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com"
+
+# Reuse labels and base dependencies from the base stage
+COPY --from=base /usr/src/app /usr/src/app
+
+# Re-Sets work directory (not sure if this is necessary)
+WORKDIR /usr/src/app
+
+# Install dependencies
+RUN apt-get update && \
+    apt-get install -y python3.10 python3-pip ffmpeg git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    ln -s /usr/bin/python3.10 /usr/bin/python && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Set environment variables for GPU target
+ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization" \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    OPENBLAS_NUM_THREADS=32 \
+    GOTO_NUM_THREADS=32 \
+    OMP_NUM_THREADS=32
+
+# Extract version information
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
 
-ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
-ENV NVIDIA_VISIBLE_DEVICES all
-ENV NVIDIA_DRIVER_CAPABILITIES compute,utility
-# Limits on OPENBLAS number of thread prevent SEGFAULT on machine with a large number of cpus
-ENV OPENBLAS_NUM_THREADS=32
-ENV GOTO_NUM_THREADS=32
-ENV OMP_NUM_THREADS=32
-
+# Health check and entrypoint for GPU target
 HEALTHCHECK CMD ./healthcheck.sh
-
-# Entrypoint handles the passed arguments
 ENTRYPOINT ["./docker-entrypoint.sh"]
