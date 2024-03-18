@@ -27,11 +27,11 @@ COPY simple/RELEASE.md ./
 FROM nvidia/cuda:12.3.2-base-ubuntu22.04 as gpu
 LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com"
 
-# Reuse labels and base dependencies from the base stage
-COPY --from=base /usr/src/app /usr/src/app
-
 # Re-Sets work directory (not sure if this is necessary)
 WORKDIR /usr/src/app
+
+# Reuse labels and base dependencies from the base stage
+COPY --from=base /usr/src/app/requirements.txt /usr/src/app/requirements.txt
 
 # Install dependencies
 RUN apt-get update && \
@@ -40,6 +40,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     ln -s /usr/bin/python3.10 /usr/bin/python && \
     pip install --no-cache-dir -r requirements.txt
+
+# Reuse labels and base dependencies from the base stage
+COPY --from=base /usr/src/app /usr/src/app
 
 # Set environment variables for GPU target
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization" \
