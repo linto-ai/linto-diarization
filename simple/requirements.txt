@@ -7,7 +7,9 @@ gunicorn>=20.1.0
 memory-tempfile
 pyyaml>=5.4.1
 supervisor>=4.2.2
-git+https://github.com/linto-ai/simple_diarizer.git@acb708de415e9e4366fb094e120a68414f5619bd
+git+https://github.com/linto-ai/simple_diarizer.git@9c6da14dde680ba528ec2628ef90fc7a0742c699
 #git+https://github.com/linto-ai/simple_diarizer.git@f190afe580662b5104e3683c7ed45cba4351e5e0
+
+
 
 

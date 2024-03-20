@@ -8,7 +8,7 @@ import werkzeug
 import torch
 
 class SpeakerDiarization:
-    def __init__(self):
+    def __init__(self, device=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
 
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
@@ -20,12 +20,15 @@ class SpeakerDiarization:
         self.log.info(f"Simple diarization version {simple_diarizer.__version__}")
         self.log.info("Instanciating SpeakerDiarization")
         self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
-        self.force_cpu=False
-        USE_GPU = torch.cuda.is_available() and not self.force_cpu
+        
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device                 
+        
         self.diar = simple_diarizer.diarizer.Diarizer(
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
                   cluster_method='nme-sc', # 'ahc' 'sc' and 'nme-sc' supported
-                  USE_GPU= USE_GPU
+                  device= self.device
                )
 
         self.tempfile = None
