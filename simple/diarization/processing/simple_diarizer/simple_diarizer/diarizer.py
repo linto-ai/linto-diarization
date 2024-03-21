@@ -14,7 +14,9 @@ from .utils import check_wav_16khz_mono, convert_wavfile
 
 class Diarizer:
     def __init__(
-        self, embed_model="xvec", cluster_method="sc", window=1.5, period=0.75, device=None
+        self, embed_model="xvec", cluster_method="sc", window=1.5, period=0.75,
+        device=None,
+        device_vad="cpu",
     ):
 
         assert embed_model in [
@@ -35,34 +37,42 @@ class Diarizer:
             self.cluster = cluster_NME_SC
 
 
-        self.vad_model, self.get_speech_ts = self.setup_VAD()
+        default_device = "cuda" if  torch.cuda.is_available() else "cpu"
+        if device_vad is None:
+            device_vad = default_device
+
+        self.vad_model, self.get_speech_ts = self.setup_VAD(device_vad)
 
         if device is None:
-            device = "cuda" if  torch.cuda.is_available() else "cpu"
-        assert isinstance(device, str), "device must be a string"
-        self.device = device
-         
+            device = default_device
+
+        print(f"Devices: VAD={device_vad}, embedding={device}")
+
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
                 source="speechbrain/spkrec-xvect-voxceleb",
                 savedir="pretrained_models/spkrec-xvect-voxceleb",
-                run_opts={"device": self.device},
+                run_opts={"device": device},
             )
         elif embed_model == "ecapa":
             self.embed_model = EncoderClassifier.from_hparams(
                 source="speechbrain/spkrec-ecapa-voxceleb",
                 savedir="pretrained_models/spkrec-ecapa-voxceleb",
-                run_opts={"device": self.device},
+                run_opts={"device": device},
             )
 
         self.window = window
         self.period = period
-    
 
-    def setup_VAD(self):
+    def setup_VAD(self, device):
+        self.device_vad = device
+        use_gpu = (device != "cpu")
         model, utils = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad", model="silero_vad", onnx=True
+            repo_or_dir="snakers4/silero-vad", model="silero_vad", onnx=not use_gpu,
+            # map_location=device
         )
+        if use_gpu:
+            model = model.to(device)
         # force_reload=True)
 
         get_speech_ts = utils[0]
@@ -72,7 +82,7 @@ class Diarizer:
         """
         Runs the VAD model on the signal
         """
-        return self.get_speech_ts(signal, self.vad_model)
+        return self.get_speech_ts(signal.to(self.device_vad), self.vad_model)
 
     def windowed_embeds(self, signal, fs, window=1.5, period=0.75):
         """
