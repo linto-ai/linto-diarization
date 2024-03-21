@@ -54,15 +54,6 @@ run_celery_worker() {
 # Main logic
 check_gpu_availability
 
-# check for FORCE_CPU environment variable
-
-if [ $GPU_AVAILABLE -eq 1 ]; then
-    echo "GPU is available. Diarization will run on GPU."
-else
-    echo "Diarization will run on CPU."
-    export CUDA_VISIBLE_DEVICES=""
-fi
-
 if [ -z "$SERVICE_MODE" ]; then
     echo "ERROR: Must specify a serving mode: [ http | task ]"
     exit 1
