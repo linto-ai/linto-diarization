@@ -55,13 +55,11 @@ run_celery_worker() {
 check_gpu_availability
 
 # check for FORCE_CPU environment variable
-if [ -n "$FORCE_CPU" ] && [ "$FORCE_CPU" = "1" ]; then
-    echo "FORCE_CPU is set to $FORCE_CPU. Diarization will run on CPU."
-    export CUDA_VISIBLE_DEVICES=""
-elif [ $GPU_AVAILABLE -eq 1 ]; then
-    echo "FORCE_CPU is not set or not equal to 1 and a GPU is available. Diarization will run on GPU."
+
+if [ $GPU_AVAILABLE -eq 1 ]; then
+    echo "GPU is available. Diarization will run on GPU."
 else
-    echo "FORCE_CPU is not set or not equal to 1 and no GPU is available. Diarization will run on CPU."
+    echo "Diarization will run on CPU."
     export CUDA_VISIBLE_DEVICES=""
 fi
 

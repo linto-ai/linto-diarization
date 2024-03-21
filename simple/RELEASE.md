@@ -1,5 +1,6 @@
 # 1.0.1
 - linto-diarization-simple with speechbrain version 1.0.0
+- DEVICE variable environment is supported to force using CPU/GPU
 
 # 1.0.0
 - First build of linto-diarization-simple

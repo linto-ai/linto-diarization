@@ -32,7 +32,7 @@ WORKDIR /usr/src/app
 
 # Reuse labels and base dependencies from the base stage
 COPY --from=base /usr/src/app/requirements.txt /usr/src/app/requirements.txt
-
+COPY --from=base /usr/src/app/diarization/processing/simple_diarizer/requirements.txt /usr/src/app/diarization/processing/simple_diarizer/
 # Install dependencies
 RUN apt-get update && \
     apt-get install -y python3.10 python3-pip ffmpeg git && \

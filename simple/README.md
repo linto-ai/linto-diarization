@@ -62,7 +62,7 @@ Fill the .env with your values.
 |:-|:-|:-|
 | `SERVING_MODE` | Specify launch mode | `http` \| `task` |
 | `CONCURRENCY` | Number of HTTP worker* | 1+ |
-| `FORCE_CPU` | Wether to use GPU or not (i.e : using nvidia runtime as default) --> 1: forces CPU, 0: uses GPU if available | `1` \| `0` |
+
 
 **2- Run the container**
 
@@ -111,7 +111,6 @@ Fill the .env with your values.
 | LANGUAGE | Language code as a BCP-47 code | en-US or * or languages separated by "\|" |
 | MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
 | CUDA_VISIBLE_DEVICES | (Optional) GPU device index to use (empty list to force no GPU). We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
-| FORCE_CPU | Wether to use GPU or not (i.e : using nvidia runtime as default) --> 1: forces CPU, 0: uses GPU if available | `1` \| `0` |
 
 **2- Fill the docker-compose.yml**
 
