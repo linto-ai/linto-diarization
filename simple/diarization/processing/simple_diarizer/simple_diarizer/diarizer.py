@@ -14,7 +14,11 @@ from .utils import check_wav_16khz_mono, convert_wavfile
 
 class Diarizer:
     def __init__(
-        self, embed_model="xvec", cluster_method="sc", window=1.5, period=0.75,
+        self,
+        embed_model="xvec",
+        cluster_method="sc",
+        window=1.5,
+        period=0.75,
         device=None,
         device_vad="cpu",
     ):
@@ -36,8 +40,7 @@ class Diarizer:
         if cluster_method == "nme-sc":
             self.cluster = cluster_NME_SC
 
-
-        default_device = "cuda" if  torch.cuda.is_available() else "cpu"
+        default_device = "cuda" if torch.cuda.is_available() else "cpu"
         if device_vad is None:
             device_vad = default_device
 
@@ -66,9 +69,11 @@ class Diarizer:
 
     def setup_VAD(self, device):
         self.device_vad = device
-        use_gpu = (device != "cpu")
+        use_gpu = device != "cpu"
         model, utils = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad", model="silero_vad", onnx=not use_gpu,
+            repo_or_dir="snakers4/silero-vad",
+            model="silero_vad",
+            onnx=not use_gpu,
             # map_location=device
         )
         if use_gpu:
@@ -106,7 +111,7 @@ class Diarizer:
 
         segments.append([start, len_signal - 1])
         embeds = []
-        
+
         with torch.no_grad():
             for i, j in segments:
                 signal_seg = signal[:, i:j]
@@ -203,11 +208,7 @@ class Diarizer:
         enhance_sim=True,
         extra_info=False,
         outfile=None,
-        
     ):
-        
-        
-        
         """
         Diarize a 16khz mono wav file, produces list of segments
 
@@ -253,7 +254,7 @@ class Diarizer:
         Uses AHC/SC/NME-SC to cluster
         """
         recname = os.path.splitext(os.path.basename(wav_file))[0]
-        
+
         if check_wav_16khz_mono(wav_file):
             signal, fs = torchaudio.load(wav_file)
         else:
@@ -270,34 +271,37 @@ class Diarizer:
         print("Running VAD...")
         speech_ts = self.vad(signal[0])
         print("Splitting by silence found {} utterances".format(len(speech_ts)))
-        #assert len(speech_ts) >= 1, "Couldn't find any speech during VAD"
+        # assert len(speech_ts) >= 1, "Couldn't find any speech during VAD"
 
         if len(speech_ts) >= 1:
             print("Extracting embeddings...")
             embeds, segments = self.recording_embeds(signal, fs, speech_ts)
 
-            [w,k]=embeds.shape
-            if  w >= 2:
-                print('Clustering to {} speakers...'.format(num_speakers))
-                cluster_labels = self.cluster(embeds, n_clusters=num_speakers,max_speakers=max_speakers,
-                                            threshold=threshold, enhance_sim=enhance_sim)
+            [w, k] = embeds.shape
+            if w >= 2:
+                print("Clustering to {} speakers...".format(num_speakers))
+                cluster_labels = self.cluster(
+                    embeds,
+                    n_clusters=num_speakers,
+                    max_speakers=max_speakers,
+                    threshold=threshold,
+                    enhance_sim=enhance_sim,
+                )
 
-                
-                
                 cleaned_segments = self.join_segments(cluster_labels, segments)
                 cleaned_segments = self.make_output_seconds(cleaned_segments, fs)
-                cleaned_segments = self.join_samespeaker_segments(cleaned_segments,
-                                                                silence_tolerance=silence_tolerance)
-                
-                
+                cleaned_segments = self.join_samespeaker_segments(
+                    cleaned_segments, silence_tolerance=silence_tolerance
+                )
+
             else:
-                cluster_labels =[ 1]
+                cluster_labels = [1]
                 cleaned_segments = self.join_segments(cluster_labels, segments)
                 cleaned_segments = self.make_output_seconds(cleaned_segments, fs)
-                
+
         else:
             cleaned_segments = []
-            
+
         print("Done!")
         if outfile:
             self.rttm_output(cleaned_segments, recname, outfile=outfile)
@@ -305,15 +309,17 @@ class Diarizer:
         if not extra_info:
             return cleaned_segments
         else:
-            return {"clean_segments": cleaned_segments,
-                    "embeds": embeds,
-                    "segments": segments,
-                    "cluster_labels": cluster_labels} 
+            return {
+                "clean_segments": cleaned_segments,
+                "embeds": embeds,
+                "segments": segments,
+                "cluster_labels": cluster_labels,
+            }
 
     @staticmethod
     def rttm_output(segments, recname, outfile=None, channel=0):
         assert outfile, "Please specify an outfile"
-        rttm_line = "SPEAKER {} "+str(channel)+" {} {} <NA> <NA> {} <NA> <NA>\n"
+        rttm_line = "SPEAKER {} " + str(channel) + " {} {} <NA> <NA> {} <NA> <NA>\n"
         with open(outfile, "w") as fp:
             for seg in segments:
                 start = seg["start"]
