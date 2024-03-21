@@ -38,15 +38,9 @@ class Diarizer:
         self.vad_model, self.get_speech_ts = self.setup_VAD()
 
         if device is None:
-            self.device = "cuda" if  torch.cuda.is_available() else "cpu"
-        elif device=="cpu":
-            os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # force torch.cuda.is_available() = False
-            self.device = "cpu" 
-        elif device=="cuda": 
-            os.environ['CUDA_VISIBLE_DEVICES'] = '0'          
-            device_num=torch.cuda.current_device()
-            to_cuda = f'cuda:{device_num}'                        
-            self.device = to_cuda
+            device = "cuda" if  torch.cuda.is_available() else "cpu"
+        assert isinstance(device, str), "device must be a string"
+        self.device = device
          
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
@@ -54,7 +48,7 @@ class Diarizer:
                 savedir="pretrained_models/spkrec-xvect-voxceleb",
                 run_opts={"device": self.device},
             )
-        if embed_model == "ecapa":
+        elif embed_model == "ecapa":
             self.embed_model = EncoderClassifier.from_hparams(
                 source="speechbrain/spkrec-ecapa-voxceleb",
                 savedir="pretrained_models/spkrec-ecapa-voxceleb",
@@ -382,66 +376,6 @@ class Diarizer:
             final_segments.append(newseg)
 
         return final_segments
-
-    def match_diarization_to_transcript_ctm(self, segments, ctm_file):
-        """
-        Match the output of .diarize to a ctm file produced by asr
-        """
-        ctm_df = pd.read_csv(
-            ctm_file,
-            delimiter=" ",
-            names=["utt", "channel", "start", "offset", "word", "confidence"],
-        )
-        ctm_df["end"] = ctm_df["start"] + ctm_df["offset"]
-
-        starts = ctm_df["start"].values
-        ends = ctm_df["end"].values
-        words = ctm_df["word"].values
-
-        # Get the earliest start from either diar output or asr output
-        earliest_start = np.min([ctm_df["start"].values[0], segments[0]["start"]])
-
-        worded_segments = self.join_samespeaker_segments(segments)
-        worded_segments[0]["start"] = earliest_start
-        cutoffs = []
-
-        for seg in worded_segments:
-            end_idx = np.searchsorted(ctm_df["end"].values, seg["end"], side="left") - 1
-            cutoffs.append(end_idx)
-
-        indexes = [[0, cutoffs[0]]]
-        for c in cutoffs[1:]:
-            indexes.append([indexes[-1][-1], c])
-
-        indexes[-1][-1] = len(words)
-
-        final_segments = []
-
-        for i, seg in enumerate(worded_segments):
-            s_idx, e_idx = indexes[i]
-            words = ctm_df["word"].values[s_idx:e_idx]
-            seg["words"] = " ".join(words)
-            if len(words) >= 1:
-                final_segments.append(seg)
-            else:
-                print(
-                    "Removed segment between {} and {} as no words were matched".format(
-                        seg["start"], seg["end"]
-                    )
-                )
-
-        return final_segments
-
-    @staticmethod
-    def nice_text_output(worded_segments, outfile):
-        with open(outfile, "w") as fp:
-            for seg in worded_segments:
-                fp.write(
-                    "[{} to {}] Speaker {}: \n".format(
-                        round(seg["start"], 2), round(seg["end"], 2), seg["label"]
-                    )
-                )
-                fp.write("{}\n\n".format(seg["words"]))
 
 
 if __name__ == "__main__":

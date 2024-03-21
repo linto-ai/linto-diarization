@@ -10,4 +10,5 @@ BROKER_PASS=
 CONCURRENCY=2
 
 # Enforce used device ("cpu" or "cuda")
-# DEVICE="cuda"
+# DEVICE=cuda
+# DEVICE=cpu

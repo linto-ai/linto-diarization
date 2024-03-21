@@ -11,6 +11,6 @@ else:
 
 from .speakerdiarization import SpeakerDiarization
 
-diarizationworker = SpeakerDiarization()
+diarizationworker = SpeakerDiarization(device=device)
 
 __all__ = ["diarizationworker"]

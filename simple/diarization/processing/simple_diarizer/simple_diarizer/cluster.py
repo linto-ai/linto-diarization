@@ -1,14 +1,11 @@
 import numpy as np
 
-import scipy.cluster.hierarchy as hcluster
-from scipy.sparse.csgraph import laplacian
+# import scipy.cluster.hierarchy as hcluster
+# from scipy.sparse.csgraph import laplacian
 from scipy.ndimage import gaussian_filter
 from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 from sklearn.metrics import pairwise_distances
 from .spectral_clustering import NME_SpectralClustering
-
-def similarity_matrix(embeds, metric="cosine"):
-    return pairwise_distances(embeds, metric=metric)
 
 
 def cluster_AHC(embeds, n_clusters=None, threshold=None, metric="cosine", **kwargs):
@@ -18,7 +15,7 @@ def cluster_AHC(embeds, n_clusters=None, threshold=None, metric="cosine", **kwar
     if n_clusters is None:
         assert threshold, "If num_clusters is not defined, threshold must be defined"
 
-    S = similarity_matrix(embeds, metric=metric)
+    S = pairwise_distances(embeds, metric=metric)
 
     if n_clusters is None:
         cluster_model = AgglomerativeClustering(

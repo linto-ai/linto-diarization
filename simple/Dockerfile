@@ -30,16 +30,17 @@ LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.
 # Re-Sets work directory (not sure if this is necessary)
 WORKDIR /usr/src/app
 
-# Reuse labels and base dependencies from the base stage
-COPY --from=base /usr/src/app/requirements.txt /usr/src/app/requirements.txt
-COPY --from=base /usr/src/app/diarization/processing/simple_diarizer/requirements.txt /usr/src/app/diarization/processing/simple_diarizer/
-# Install dependencies
+# Install python and other dependencies
 RUN apt-get update && \
     apt-get install -y python3.10 python3-pip ffmpeg git && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    ln -s /usr/bin/python3.10 /usr/bin/python && \
-    pip install --no-cache-dir -r requirements.txt
+    ln -s /usr/bin/python3.10 /usr/bin/python
+
+# Install python packages
+# Reuse labels and base dependencies from the base stage
+COPY --from=base /usr/src/app/requirements.txt /usr/src/app/requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Reuse labels and base dependencies from the base stage
 COPY --from=base /usr/src/app /usr/src/app

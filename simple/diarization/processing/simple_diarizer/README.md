@@ -1,8 +1,8 @@
+**This code was adapted from** https://github.com/linto-ai/simple_diarizer
+
+---
+
 # simple_diarizer
-
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1nMKHOTTROwQitOXQEYq35lvv7nyTOlpe?usp=sharing)
-[![](https://shields.io/badge/Trello-simple__diarizer-blue?logo=Trello&style=flat)](https://trello.com/b/2ZN9ybC1/simplediarizer)
 
 Simplified diarization pipeline using some pretrained models. 
 
@@ -70,7 +70,3 @@ It can be checked out in the above link, where it will try and diarize any input
 
 - Spectral clustering methods lifted from [https://github.com/wq2012/SpectralCluster](https://github.com/wq2012/SpectralCluster)
 
-
-# Planned Features
-
-[![](https://shields.io/badge/simple__diarizer-Trello-blue?logo=Trello&style=flat)](https://trello.com/b/2ZN9ybC1/simplediarizer)
