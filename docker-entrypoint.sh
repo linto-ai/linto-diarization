@@ -4,17 +4,22 @@ set -e
 echo "Diarization starting..."
 
 check_gpu_availability() {
-    if command -v nvidia-smi &>/dev/null; then
-        nvidia-smi 2> /dev/null > /dev/null && GPU_AVAILABLE=1 || GPU_AVAILABLE=0
-    else
+    if [ "$DEVICE" == "cpu" ];then
         GPU_AVAILABLE=0
+        echo "GPU disabled"
+    else
+        if command -v nvidia-smi &>/dev/null; then
+            nvidia-smi 2> /dev/null > /dev/null && GPU_AVAILABLE=1 || GPU_AVAILABLE=0
+        else
+            GPU_AVAILABLE=0
+        fi
+        if [ $GPU_AVAILABLE -eq 1 ]; then
+            echo "GPU detected"
+        else
+            echo "No GPU detected"
+        fi
     fi
 
-    if [ $GPU_AVAILABLE -eq 1 ]; then
-        echo "GPU detected"
-    else
-        echo "No GPU detected"
-    fi
 }
 
 run_http_server() {
