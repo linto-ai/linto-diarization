@@ -45,7 +45,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Reuse labels and base dependencies from the base stage
 COPY --from=base /usr/src/app /usr/src/app
 
-# Set environment variables for GPU target
+# Set path
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 
 # Extract version information
