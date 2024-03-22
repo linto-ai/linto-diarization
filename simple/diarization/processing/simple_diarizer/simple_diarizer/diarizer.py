@@ -22,6 +22,7 @@ class Diarizer:
         period=0.75,
         device=None,
         device_vad="cpu",
+        num_threads=None,
         logger=None,
     ):
         self.log = logger if logger is not None else print
@@ -51,8 +52,11 @@ class Diarizer:
 
         if device is None:
             device = default_device
+        self.num_threads = num_threads
+        if not num_threads:
+            num_threads = torch.get_num_threads()
 
-        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu")
+        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu (with {num_threads} CPU threads)")
 
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
@@ -256,6 +260,11 @@ class Diarizer:
 
         Uses AHC/SC/NME-SC to cluster
         """
+
+        if self.num_threads:
+            # For VAD / embedding
+            torch.set_num_threads(self.num_threads)
+
         recname = os.path.splitext(os.path.basename(wav_file))[0]
 
         if check_wav_16khz_mono(wav_file):
