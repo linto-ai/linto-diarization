@@ -46,12 +46,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=base /usr/src/app /usr/src/app
 
 # Set environment variables for GPU target
-ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization" \
-    NVIDIA_VISIBLE_DEVICES=all \
-    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
-    OPENBLAS_NUM_THREADS=32 \
-    GOTO_NUM_THREADS=32 \
-    OMP_NUM_THREADS=32
+ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 
 # Extract version information
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
