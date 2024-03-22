@@ -1,3 +1,8 @@
+# 1.0.1
+- Add DEVICE environment variable to enforce using CPU ("cpu") or GPU ("cuda")
+- Fix multi-threading, and add NUM_THREADS environment variable to control the maximum number of threads
+- Upgrade to speechbrain version 1.0.0
+
 # 1.0.0
 - First build of linto-diarization-simple
 - Based on version 3.0.4 of linto-platform-diarization https://github.com/linto-ai/linto-platform-diarization/blob/039f0a70da11b978e0c8dab535061200da8d9fe7/RELEASE.md
