@@ -5,6 +5,7 @@ from copy import deepcopy
 import numpy as np
 import torch
 import torchaudio
+import time
 from speechbrain.inference.speaker import EncoderClassifier
 from tqdm.autonotebook import tqdm
 
@@ -21,7 +22,9 @@ class Diarizer:
         period=0.75,
         device=None,
         device_vad="cpu",
+        logger=None,
     ):
+        self.log = logger if logger is not None else print
 
         assert embed_model in [
             "xvec",
@@ -49,7 +52,7 @@ class Diarizer:
         if device is None:
             device = default_device
 
-        print(f"Devices: VAD={device_vad}, embedding={device}")
+        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu")
 
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
@@ -258,7 +261,7 @@ class Diarizer:
         if check_wav_16khz_mono(wav_file):
             signal, fs = torchaudio.load(wav_file)
         else:
-            print("Converting audio file to single channel WAV using ffmpeg...")
+            self.log("Converting audio file to single channel WAV using ffmpeg...")
             converted_wavfile = os.path.join(
                 os.path.dirname(wav_file), "{}_converted.wav".format(recname)
             )
@@ -268,18 +271,23 @@ class Diarizer:
             ), "Couldn't find converted wav file, failed for some reason"
             signal, fs = torchaudio.load(converted_wavfile)
 
-        print("Running VAD...")
+        self.log("Running VAD...")
+        tic = time.time()
         speech_ts = self.vad(signal[0])
-        print("Splitting by silence found {} utterances".format(len(speech_ts)))
+        self.log(f"Done in {time.time() - tic:.3f} seconds")
+        self.log(f"Splitting by silence found {len(speech_ts)} utterances")
         # assert len(speech_ts) >= 1, "Couldn't find any speech during VAD"
 
         if len(speech_ts) >= 1:
-            print("Extracting embeddings...")
+            self.log("Extracting embeddings...")
+            tic = time.time()
             embeds, segments = self.recording_embeds(signal, fs, speech_ts)
+            self.log(f"Done in {time.time() - tic:.3f} seconds")
 
             [w, k] = embeds.shape
             if w >= 2:
-                print("Clustering to {} speakers...".format(num_speakers))
+                self.log("Clustering to {} speakers...".format(num_speakers))
+                tic = time.time()
                 cluster_labels = self.cluster(
                     embeds,
                     n_clusters=num_speakers,
@@ -293,8 +301,10 @@ class Diarizer:
                 cleaned_segments = self.join_samespeaker_segments(
                     cleaned_segments, silence_tolerance=silence_tolerance
                 )
+                self.log(f"Done in {time.time() - tic:.3f} seconds")
 
             else:
+                self.log("No need to cluster")
                 cluster_labels = [1]
                 cleaned_segments = self.join_segments(cluster_labels, segments)
                 cleaned_segments = self.make_output_seconds(cleaned_segments, fs)
@@ -302,7 +312,6 @@ class Diarizer:
         else:
             cleaned_segments = []
 
-        print("Done!")
         if outfile:
             self.rttm_output(cleaned_segments, recname, outfile=outfile)
 

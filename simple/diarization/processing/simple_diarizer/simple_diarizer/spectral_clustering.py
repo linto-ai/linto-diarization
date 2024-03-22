@@ -88,7 +88,7 @@ def NME_SpectralClustering(
         max_num_clusters = num_clusters
 
     if pbest == 0:
-        print("Selecting best number of neighbors for affinity matrix thresolding:")
+        # Selecting best number of neighbors for affinity matrix thresolding
         rbest = None
         kbest = None
         for p in range(pmin, pmax + 1):
