@@ -1,6 +1,7 @@
 # 1.0.1
-- linto-diarization-simple with speechbrain version 1.0.0
-- DEVICE variable environment is supported to force using CPU/GPU
+- Add DEVICE environment variable to enforce using CPU ("cpu") or GPU ("cuda")
+- Fix multi-threading, and add NUM_THREADS environment variable to control the maximum number of threads
+- Upgrade to speechbrain version 1.0.0
 
 # 1.0.0
 - First build of linto-diarization-simple

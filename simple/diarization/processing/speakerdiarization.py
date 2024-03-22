@@ -8,13 +8,22 @@ import torch
 
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer"))
-import simple_diarizer
-import simple_diarizer.diarizer
 
 
 class SpeakerDiarization:
-    def __init__(self, device=None):
+    def __init__(self, device=None, num_threads=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
+        self.log.info("Instanciating SpeakerDiarization")
+
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device
+
+        if num_threads:
+            # For torch (VAD, embedding)
+            torch.set_num_threads(num_threads)
+            # For sklearn (clustering...)
+            os.environ["OMP_NUM_THREADS"] = str(num_threads)
 
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
             self.log.setLevel(logging.DEBUG)
@@ -22,14 +31,13 @@ class SpeakerDiarization:
         else:
             self.log.setLevel(logging.INFO)
 
+        # Safer to import sklearn & co after OMP_NUM_THREADS was set
+        import simple_diarizer
+        import simple_diarizer.diarizer
+
         self.log.info(f"Simple diarization version {simple_diarizer.__version__}")
-        self.log.info("Instanciating SpeakerDiarization")
         self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
-        
-        if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.device = device                 
-        
+
         self.diar = simple_diarizer.diarizer.Diarizer(
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
                   cluster_method='nme-sc', # 'ahc' 'sc' and 'nme-sc' supported
