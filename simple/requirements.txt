@@ -1,14 +1,14 @@
-celery[redis,auth,msgpack]>=4.4.7
-flask>=1.1.2
-flask-cors>=3.0.10
+celery[redis,auth,msgpack]==5.3.6
+flask==3.0.2
+flask-cors==4.0.0
 flask-swagger-ui==3.36.0
-gevent
-gunicorn>=20.1.0
-memory-tempfile
-pyyaml>=5.4.1
-supervisor>=4.2.2
-scikit-learn>=1.0.2
-speechbrain>=0.5.11
-torchaudio>=0.10.1
-onnxruntime-gpu>=1.14.0
-scipy<=1.8.1 # newer version can provoke segmentation faults
+gevent==24.2.1
+gunicorn==21.2.0
+memory-tempfile==2.2.3
+pyyaml==6.0.1
+supervisor==4.2.5
+scikit-learn==1.4.1.post1
+speechbrain==1.0.0
+torchaudio==2.2.1
+onnxruntime-gpu==1.17.1
+scipy==1.8.1 # newer version can provoke segmentation faults
