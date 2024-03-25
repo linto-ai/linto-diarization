@@ -197,11 +197,11 @@ Return a json object when using structured as followed:
 ```json
 {
   "speakers": [
-      {"spk_id": "spk5", "duration": 2.0, "nbr_seg": 1},
+      {"spk_id": "spk5", "duration": 2.2, "nbr_seg": 1},
       ...
   ],
   "segments": [
-      {"seg_id": 1, "spk_id": "spk5", "seg_begin": 0.0, "seg_end": 2.0},
+      {"seg_id": 1, "spk_id": "spk5", "seg_begin": 0.0, "seg_end": 2.2},
       ...
   ]
 }
