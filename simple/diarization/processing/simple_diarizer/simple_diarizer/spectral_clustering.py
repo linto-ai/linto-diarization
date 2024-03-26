@@ -52,18 +52,11 @@ def ComputeNMEParameters(A, p, max_num_clusters, device):
     # Laplacian matrix computation
     Lp = Laplacian(Ap)
     # Get max_num_clusters+1 smallest eigenvalues
-    from torch.linalg import eigh     
+    from torch.linalg import eigh   
     
-    if device=="cuda" and torch.cuda.is_available()== True:       
-        Lp = torch.from_numpy(Lp).float().to('cuda')
-        lambdas, _ = eigh(Lp)
-        S = lambdas.cpu().numpy()
-        
-    else:
-        Lp = torch.from_numpy(Lp).float()
-        lambdas, _ = eigh(Lp)
-        S = lambdas.cpu().numpy()
-    
+    Lp = torch.from_numpy(Lp).float().to(device)
+    lambdas, _ = eigh(Lp)
+    S = lambdas.cpu().numpy()
     # Eigengap computation
     
     e = np.sort(S)
@@ -98,7 +91,7 @@ def NME_SpectralClustering(
         max_num_clusters = num_clusters
 
     if pbest == 0:
-        print("Selecting best number of neighbors for affinity matrix thresolding:")
+        # Selecting best number of neighbors for affinity matrix thresolding
         rbest = None
         kbest = None
         for p in range(pmin, pmax + 1):
