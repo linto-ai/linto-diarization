@@ -1,6 +1,7 @@
 import numpy as np
 import scipy
 from sklearn.cluster import SpectralClustering
+import torch
 
 # NME low-level operations
 # These functions are taken from the Kaldi scripts.
@@ -38,9 +39,12 @@ def Eigengap(S):
     S = sorted(S)
     return np.diff(S)
 
+def getLamdaGaplist(lambdas):
+    lambdas = np.real(lambdas)
+    return list(lambdas[1:] - lambdas[:-1])
 
 # Computes parameters of normalized eigenmaps for automatic thresholding selection
-def ComputeNMEParameters(A, p, max_num_clusters):
+def ComputeNMEParameters(A, p, max_num_clusters, device):
     # p-Neighbour binarization
     Ap = get_kneighbors_conn(A, p)
     # Symmetrization
@@ -48,23 +52,29 @@ def ComputeNMEParameters(A, p, max_num_clusters):
     # Laplacian matrix computation
     Lp = Laplacian(Ap)
     # Get max_num_clusters+1 smallest eigenvalues
-    S = scipy.sparse.linalg.eigsh(
-        Lp,
-        k=max_num_clusters + 1,
-        which="SA",
-        tol=1e-6,
-        return_eigenvectors=False,
-        mode="buckling",
-    )
-    # Get largest eigenvalue
-    Smax = scipy.sparse.linalg.eigsh(
-        Lp, k=1, which="LA", tol=1e-6, return_eigenvectors=False, mode="buckling"
-    )
+    from torch.linalg import eigh     
+    
+    if device=="cuda" and torch.cuda.is_available()== True:       
+        Lp = torch.from_numpy(Lp).float().to('cuda')
+        lambdas, _ = eigh(Lp)
+        S = lambdas.cpu().numpy()
+        
+    else:
+        Lp = torch.from_numpy(Lp).float()
+        lambdas, _ = eigh(Lp)
+        S = lambdas.cpu().numpy()
+    
     # Eigengap computation
-    e = Eigengap(S)
-    g = np.max(e[:max_num_clusters]) / (Smax + 1e-10)
-    r = p / g
-    k = np.argmax(e[:max_num_clusters])
+    
+    e = np.sort(S)
+    g = getLamdaGaplist(e)
+    k = np.argmax(g[: min(max_num_clusters, len(g))]) 
+    arg_sorted_idx = np.argsort(g[: max_num_clusters])[::-1]
+    max_key = arg_sorted_idx[0]
+    max_eig_gap = g[max_key] / (max(e) + 1e-10)
+    r = (p / A.shape[0]) / (max_eig_gap + 1e-10)
+    
+    
     return (e, g, k, r)
 
 
@@ -81,23 +91,22 @@ Returns: cluster assignments for every speaker embedding
 
 
 def NME_SpectralClustering(
-    A, num_clusters=None, max_num_clusters=None, pbest=0, pmin=3, pmax=20
+    A, num_clusters=None, max_num_clusters=None, pbest=0, pmin=3, pmax=20, device=None
 ):
     if max_num_clusters is None:
         assert num_clusters is not None, "Cannot have both num_clusters and max_num_clusters be None"
         max_num_clusters = num_clusters
 
     if pbest == 0:
-        # Selecting best number of neighbors for affinity matrix thresolding
+        print("Selecting best number of neighbors for affinity matrix thresolding:")
         rbest = None
         kbest = None
         for p in range(pmin, pmax + 1):
-            e, g, k, r = ComputeNMEParameters(A, p, max_num_clusters)
+            e, g, k, r = ComputeNMEParameters(A, p, max_num_clusters,device)
             if rbest is None or rbest > r:
                 rbest = r
                 pbest = p
-                kbest = k
-        
+                kbest = k        
         num_clusters = num_clusters if num_clusters is not None else (kbest + 1)
         return NME_SpectralClustering_sklearn(
             A, num_clusters, pbest
