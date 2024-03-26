@@ -22,6 +22,7 @@ class Diarizer:
         period=0.75,
         device=None,
         device_vad="cpu",
+        device_clustering=None,
         num_threads=None,
         logger=None,
     ):
@@ -42,21 +43,23 @@ class Diarizer:
         if cluster_method == "sc":
             self.cluster = cluster_SC
         if cluster_method == "nme-sc":
-            self.cluster = cluster_NME_SC
+            self.cluster = cluster_NME_SC        
 
         default_device = "cuda" if torch.cuda.is_available() else "cpu"
         if device_vad is None:
-            device_vad = default_device
-
-        self.vad_model, self.get_speech_ts = self.setup_VAD(device_vad)
+            device_vad = default_device       
+        
+        self.vad_model, self.get_speech_ts = self.setup_VAD(device_vad)             
 
         if device is None:
             device = default_device
+        if device_clustering is None:
+            device_clustering = device
         self.num_threads = num_threads
         if not num_threads:
             num_threads = torch.get_num_threads()
 
-        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu (with {num_threads} CPU threads)")
+        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering={device_clustering} (with {num_threads} CPU threads)")
 
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
@@ -73,6 +76,7 @@ class Diarizer:
 
         self.window = window
         self.period = period
+        self.device_clustering=device_clustering
 
     def setup_VAD(self, device):
         self.device_vad = device
@@ -263,8 +267,7 @@ class Diarizer:
 
         if self.num_threads:
             # For VAD / embedding
-            torch.set_num_threads(self.num_threads)
-
+            torch.set_num_threads(self.num_threads)        
         recname = os.path.splitext(os.path.basename(wav_file))[0]
 
         if check_wav_16khz_mono(wav_file):
@@ -291,8 +294,7 @@ class Diarizer:
             self.log("Extracting embeddings...")
             tic = time.time()
             embeds, segments = self.recording_embeds(signal, fs, speech_ts)
-            self.log(f"Done in {time.time() - tic:.3f} seconds")
-
+            self.log(f"Done in {time.time() - tic:.3f} seconds")            
             [w, k] = embeds.shape
             if w >= 2:
                 self.log("Clustering to {} speakers...".format(num_speakers))
@@ -303,6 +305,7 @@ class Diarizer:
                     max_speakers=max_speakers,
                     threshold=threshold,
                     enhance_sim=enhance_sim,
+                    device=self.device_clustering                    
                 )
 
                 cleaned_segments = self.join_segments(cluster_labels, segments)
