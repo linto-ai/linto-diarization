@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   my-diarization-service:
-    image: linto-platform-diarization:latest
+    image: linto-diarization-simple:latest
     volumes:
       - /path/to/shared/folder:/opt/audio
     env_file: .env

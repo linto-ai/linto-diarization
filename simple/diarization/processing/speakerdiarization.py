@@ -2,13 +2,26 @@
 import logging
 import os
 import time
-import simple_diarizer.diarizer
 import memory_tempfile
 import werkzeug
+import torch
+
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer"))
+
+import simple_diarizer
+import simple_diarizer.diarizer
 
 class SpeakerDiarization:
-    def __init__(self):
+    def __init__(self, device=None, num_threads=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
+        self.log.info("Instanciating SpeakerDiarization")
+
+        if device is None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = device
+
+        self.num_threads = num_threads
 
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
             self.log.setLevel(logging.DEBUG)
@@ -17,11 +30,13 @@ class SpeakerDiarization:
             self.log.setLevel(logging.INFO)
 
         self.log.info(f"Simple diarization version {simple_diarizer.__version__}")
-        self.log.info("Instanciating SpeakerDiarization")
         self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
+
         self.diar = simple_diarizer.diarizer.Diarizer(
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
-                  cluster_method='nme-sc' # 'ahc' 'sc' and 'nme-sc' supported
+                  cluster_method='nme-sc', # 'ahc' 'sc' and 'nme-sc' supported
+                  device= self.device,
+                  num_threads=num_threads,
                )
 
         self.tempfile = None
