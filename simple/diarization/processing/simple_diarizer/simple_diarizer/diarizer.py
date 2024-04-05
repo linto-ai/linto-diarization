@@ -22,7 +22,7 @@ class Diarizer:
         period=0.75,
         device=None,
         device_vad="cpu",
-        device_clustering=None,
+        device_clustering="cpu",
         num_threads=None,
         logger=None,
     ):

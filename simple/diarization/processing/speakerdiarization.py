@@ -13,7 +13,7 @@ import simple_diarizer
 import simple_diarizer.diarizer
 
 class SpeakerDiarization:
-    def __init__(self, device=None, num_threads=None):
+    def __init__(self, device=None, device_vad="cpu", device_clustering="cpu", num_threads=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
         self.log.info("Instanciating SpeakerDiarization")
 
@@ -36,6 +36,8 @@ class SpeakerDiarization:
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
                   cluster_method='nme-sc', # 'ahc' 'sc' and 'nme-sc' supported
                   device= self.device,
+                  device_vad=device_vad,
+                  device_clustering=device_clustering,
                   num_threads=num_threads,
                )
 

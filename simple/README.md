@@ -62,8 +62,10 @@ Fill the .env with your values.
 |:-|:-|:-|
 | `SERVING_MODE` | (Required) Specify launch mode | `http` |
 | `CONCURRENCY` | Number of worker(s) | `1` \| `2` \| ... |
-| `DEVICE` | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
+| `DEVICE` | Device to use for the embeddings model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` \| `cuda:1` ... |
+| `DEVICE_VAD` | Device to use for the Voice Activity Detection (by default, CPU) | `cpu` \| `cuda` \| `cuda:1` ... |
+| `DEVICE_CLUSTERING` | Device to use for the clustering (by default, CPU) | `cpu` \| `cuda` \| `cuda:1` ... |
 | `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 
 
