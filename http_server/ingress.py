@@ -29,7 +29,6 @@ def healthcheck():
 def oas_docs():
     return "Not Implemented", 501
 
-
 @app.route("/diarization", methods=["POST"])
 def transcribe():
     try:
@@ -46,9 +45,12 @@ def transcribe():
             spk_number = request.form.get("spk_number", None)
             if spk_number is not None:
                 spk_number = int(spk_number)
-            max_spk_number = request.form.get("max_speaker", None)
+            max_spk_number = request.form.get("max_speaker", None)            
             if max_spk_number is not None:
                 max_spk_number = int(max_spk_number)
+            
+            speakers = request.form.getlist('speakers_name[]')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]           
+            
             start_t = time()
         else:
             raise ValueError("No audio file was uploaded")
@@ -61,7 +63,7 @@ def transcribe():
     # Diarization
     try:
         result = diarizationworker.run(
-            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number
+            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number,spk_names=speakers
         )
     except Exception as e:
         import traceback
