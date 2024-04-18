@@ -213,6 +213,7 @@ class Diarizer:
         wav_file,
         num_speakers=2,
         max_speakers=None,
+        identification=False,
         spk_names=None,
         threshold=None,
         silence_tolerance=0.2,
@@ -325,49 +326,51 @@ class Diarizer:
         else:
             cleaned_segments = []
         
-        
-        voices_box="/usr/src/app/diarization/processing/simple_diarizer/voices_ref"
-        speaker_tags = []
-        speakers = {}
-        common = []        
-        speaker_map = {}
+        if identification== True:
+
+            voices_box="/usr/src/app/diarization/processing/simple_diarizer/voices_ref"
+            speaker_tags = []
+            speakers = {}
+            common = []        
+            speaker_map = {}
+                 
+            for seg in cleaned_segments:
                 
-        for seg in cleaned_segments:
+                start =  (seg['start'])
+                end = (seg['end'])
+                speaker = "speaker_" + str(seg['label'])
+                common.append([start, end, speaker])
+
+                # find different speakers
+                if speaker not in speaker_tags:
+                    speaker_tags.append(speaker)
+                    speaker_map[speaker] = speaker
+                    speakers[speaker] = []
+
+                speakers[speaker].append([start, end, speaker])
             
-            start =  (seg['start'])
-            end = (seg['end'])
-            speaker = "speaker_" + str(seg['label'])
-            common.append([start, end, speaker])
+            if voices_box != None and voices_box != "":
+                identified = []            
+                self.log("running speaker recognition...")
+                tic = time.time()
 
-            # find different speakers
-            if speaker not in speaker_tags:
-                speaker_tags.append(speaker)
-                speaker_map[speaker] = speaker
-                speakers[speaker] = []
-
-            speakers[speaker].append([start, end, speaker])
-        
-        if voices_box != None and voices_box != "":
-            identified = []            
-            self.log("running speaker recognition...")
-            tic = time.time()
-
-            for spk_tag, spk_segments in speakers.items():                               
-                spk_name = speaker_recognition(wav_file, voices_box, spk_names, spk_segments, identified)
-                spk = spk_name
-                identified.append(spk)
-                speaker_map[spk_tag] = spk
-            self.log(f"Done in {time.time() - tic:.3f} seconds")
-        
-                             
-        # fixing the speaker names in cleaned_segments                
-        for seg in cleaned_segments:
-            speaker = "speaker_" + str(seg['label'])  
-            seg['label'] = speaker_map[speaker]
+                for spk_tag, spk_segments in speakers.items():                               
+                    spk_name = speaker_recognition(wav_file, voices_box, spk_names, spk_segments, identified)
+                    spk = spk_name
+                    identified.append(spk)
+                    speaker_map[spk_tag] = spk
+                self.log(f"Done in {time.time() - tic:.3f} seconds")
             
-                      
+                                
+            # fixing the speaker names in cleaned_segments                
+            for seg in cleaned_segments:
+                speaker = "speaker_" + str(seg['label'])  
+                seg['label'] = speaker_map[speaker]
+                
+                       
+            
         if outfile:
-            self.rttm_output(cleaned_segments, recname, outfile=outfile)
+                self.rttm_output(cleaned_segments, recname, outfile=outfile)
 
         if not extra_info:
             return cleaned_segments
@@ -377,7 +380,7 @@ class Diarizer:
                 "embeds": embeds,
                 "segments": segments,
                 "cluster_labels": cluster_labels,
-            }
+            }    
 
     @staticmethod
     def rttm_output(segments, recname, outfile=None, channel=0):

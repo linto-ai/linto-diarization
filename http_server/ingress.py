@@ -49,7 +49,16 @@ def transcribe():
             if max_spk_number is not None:
                 max_spk_number = int(max_spk_number)
             
-            speakers = request.form.getlist('speakers_name[]')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]           
+            identification=request.form.get("enable_speaker_identification", None)
+            
+            if identification == 'true':
+                enable_speaker_identification = True
+            else: 
+                enable_speaker_identification = False
+    
+            
+            speakers = request.form.get('speakers_name',[])            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
+            print(speakers)         
             
             start_t = time()
         else:
@@ -63,7 +72,7 @@ def transcribe():
     # Diarization
     try:
         result = diarizationworker.run(
-            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number,spk_names=speakers
+            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number, identification=enable_speaker_identification, spk_names=speakers
         )
     except Exception as e:
         import traceback

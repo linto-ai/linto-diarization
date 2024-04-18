@@ -54,7 +54,7 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
            
             for voice in voices:
                 voice_file = voices_folder + "/" + speaker + "/" + voice
-                print(voice_file)
+                
                 try:
                     # compare voice file with audio file
                     score, prediction = verification.verify_files(voice_file, file)
