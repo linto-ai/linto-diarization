@@ -51,6 +51,7 @@ ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 # Extract version information
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
 
+
 # Health check and entrypoint for GPU target
 HEALTHCHECK CMD ./healthcheck.sh
 ENTRYPOINT ["./docker-entrypoint.sh"]

@@ -10,7 +10,7 @@ for folder in "/data-local" "/data-storage" "/media"; do
         OPT="$OPT -v $folder:$folder"
     fi
 done
-docker run -it --rm --runtime=nvidia  -p 8080:80 $OPT -v /tmp:/opt/audio --env-file .envdefault linto-diarization-simple:3.0.11
+docker run -it --rm --runtime=nvidia  -p 8080:80 $OPT -v /tmp:/opt/audio -v /home/wghezaiel/push_project/senat/voices_ref/:/usr/src/app/voices_ref  --env-file .envdefault linto-diarization-simple:3.0.11
 
 
 #-e NVIDIA_DRIVER_CAPABILITIES=compute,utility -e NVIDIA_VISIBLE_DEVICES=all

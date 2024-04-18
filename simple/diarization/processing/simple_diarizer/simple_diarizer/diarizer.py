@@ -328,7 +328,7 @@ class Diarizer:
         
         if identification== True:
 
-            voices_box="/usr/src/app/diarization/processing/simple_diarizer/voices_ref"
+            voices_box="voices_ref"
             speaker_tags = []
             speakers = {}
             common = []        
