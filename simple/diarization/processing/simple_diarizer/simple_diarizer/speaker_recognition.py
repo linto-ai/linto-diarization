@@ -47,27 +47,25 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
 
         max_score = 0
         person = "unknown"      # if no match to any voice, then return unknown
-
+        
         for speaker in speakers:
-
+            
             voices = os.listdir(voices_folder + "/" + speaker)
            
             for voice in voices:
-                voice_file = voices_folder + "/" + speaker + "/" + voice
+                voice_file = voices_folder + "/" + speaker + "/" + voice                
                 
-                try:
-                    # compare voice file with audio file
-                    score, prediction = verification.verify_files(voice_file, file)
-                    prediction = prediction[0].item()
-                    score = score[0].item()                    
-                    if prediction == True:
-                        if score >= max_score:
-                            max_score = score
-                            speakerId = speaker.split(".")[0] 
-                            if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
-                                person = speakerId
-                except:
-                    pass
+                # compare voice file with audio file
+                score, prediction = verification.verify_files(voice_file, file)
+                prediction = prediction[0].item()
+                score = score[0].item()                    
+                if prediction == True:
+                    if score >= max_score:
+                        max_score = score
+                        speakerId = speaker.split(".")[0] 
+                        if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
+                            person = speakerId
+                
 
         Id_count[person] += 1
 

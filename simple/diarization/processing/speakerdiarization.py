@@ -41,7 +41,7 @@ class SpeakerDiarization:
 
         self.tempfile = None
     
-    def run_simple_diarizer(self, file_path, number_speaker, max_speaker,identification,spk_names):
+    def run_simple_diarizer(self, file_path, number_speaker, max_speaker,spk_names):
         
         start_time = time.time()
 
@@ -53,13 +53,12 @@ class SpeakerDiarization:
 
             with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
                 file_path.save(ntf.name)
-                return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker,identification,spk_names)
+                return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker,spk_names)
         
         diarization = self.diar.diarize(
             file_path,
             num_speakers=number_speaker,
-            max_speakers=max_speaker,
-            identification=identification,
+            max_speakers=max_speaker,            
             spk_names=spk_names,
             silence_tolerance=self.tolerated_silence,
             threshold=3e-1
@@ -77,7 +76,7 @@ class SpeakerDiarization:
             )
         )
             
-        return self.format_response_id(diarization) if identification==True else self.format_response(diarization)
+        return self.format_response_id(diarization) if spk_names is not None else self.format_response(diarization)
 
     def format_response(self, segments: list) -> dict:
         #########################
@@ -233,14 +232,14 @@ class SpeakerDiarization:
     def round(self, x):
         return round(x, 2)
 
-    def run(self, file_path, number_speaker: int = None, max_speaker: int = None, identification: bool = False, spk_names: str = None ):
+    def run(self, file_path, number_speaker: int = None, max_speaker: int = None, spk_names: str = None ):
         
         if number_speaker is None and max_speaker is None:
             raise Exception("Either number_speaker or max_speaker must be set")            
 
         self.log.debug(f"Starting diarization on file {file_path}")
         try:
-            return self.run_simple_diarizer(file_path, number_speaker = number_speaker, max_speaker = max_speaker, identification = identification,  spk_names=spk_names)
+            return self.run_simple_diarizer(file_path, number_speaker = number_speaker, max_speaker = max_speaker,  spk_names=spk_names)
         except Exception as e:
             self.log.error(e)
             raise Exception(

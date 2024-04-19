@@ -39,13 +39,8 @@ paths:
         in: "formData"
         description: "Max number of speakers if spk_number is unknown"
         required: false
-        type: integer
-      - name: "enable_speaker_identification"
-        in: "formData"
-        required: false
-        type: "boolean"
-        default: "false"    
-      - name: " speakers_name"
+        type: integer      
+      - name: "speakers_name"
         description: "List of candidate speaker"
         in: formData
         type: array

@@ -212,8 +212,7 @@ class Diarizer:
         self,
         wav_file,
         num_speakers=2,
-        max_speakers=None,
-        identification=False,
+        max_speakers=None,        
         spk_names=None,
         threshold=None,
         silence_tolerance=0.2,
@@ -326,7 +325,7 @@ class Diarizer:
         else:
             cleaned_segments = []
         
-        if identification== True:
+        if spk_names is not None:
 
             voices_box="voices_ref"
             speaker_tags = []
