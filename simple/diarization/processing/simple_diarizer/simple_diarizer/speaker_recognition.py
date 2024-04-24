@@ -18,7 +18,7 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
     else:
         speakers = os.listdir(voices_folder)
 
-    Id_count = defaultdict(int)
+    id_count = defaultdict(int)
     # Load the WAV file    
     audio = AudioSegment.from_file(file_name, format="wav")
     #folder_name = "temp"
@@ -33,7 +33,7 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
     assign speaker name to arbitrary speaker tag 'SPEAKER_XX'
     '''
 
-    limit = 60
+    limit = 60   #maximum duration of speech in sec to try speaker ID
     duration = 0
     
     for segment in segments:
@@ -67,19 +67,19 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
                             person = speakerId
                 
 
-        Id_count[person] += 1
+        id_count[person] += 1
 
         # Delete the WAV file after processing
         #os.remove(file)
         
-        current_pred = max(Id_count, key=Id_count.get)
+        current_pred = max(id_count, key=id_count.get)
 
         duration += (end - start)
         
         if duration >= limit and current_pred != "unknown":
             break
     
-    most_common_Id = max(Id_count, key=Id_count.get)
+    most_common_Id = max(id_count, key=id_count.get)
     
     return most_common_Id
 

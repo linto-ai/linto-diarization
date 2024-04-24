@@ -49,10 +49,35 @@ def transcribe():
             if max_spk_number is not None:
                 max_spk_number = int(max_spk_number)
             
-            speakers = request.form.get('speakers_name')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
-            if speakers is not None:
-                speakers=(speakers.split())              
-                speakers=speakers[0].split(',')
+            names_speaker = request.form.get('speakers_name')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
+            
+            if names_speaker is not None:
+                names_speaker=json.loads(names_speaker)
+                speakers=[]
+                for item in names_speaker:
+                    if type(item)==int:
+                        speakers.append(item)
+                    elif type(item)==dict:
+                        start=item['start']
+                        end=item['end']
+                        for x in range(start,end+1):         
+                            speakers.append(x)
+                
+                import sqlite3
+                conn=sqlite3.connect('voices_ref/speakers_database')
+                c = conn.cursor()
+                speakers_list=[]
+                for i in speakers:
+                    
+                    item=c.execute("SELECT Name FROM Speaker_names WHERE id = '%s'" % i)                  
+                    speakers_list.append(item.fetchone()[0])   
+
+                # Closing the connection 
+                conn.close() 
+            else:
+                speakers_list=[]
+            
+
             
             start_t = time()
         else:
@@ -66,7 +91,7 @@ def transcribe():
     # Diarization
     try:
         result = diarizationworker.run(
-            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number, spk_names=speakers
+            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number, spk_names=speakers_list
         )
     except Exception as e:
         import traceback

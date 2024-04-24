@@ -75,8 +75,8 @@ class SpeakerDiarization:
                 (time.time() - start_time)/ duration,
             )
         )
-            
-        return self.format_response_id(diarization) if spk_names is not None else self.format_response(diarization)
+         
+        return self.format_response_id(diarization) if len(spk_names) > 0 else self.format_response(diarization)
 
     def format_response(self, segments: list) -> dict:
         #########################

@@ -43,9 +43,7 @@ paths:
       - name: "speakers_name"
         description: "List of candidate speaker"
         in: formData
-        type: array
-        items:
-            type: string
+        type: string        
       responses:
         200:
           description: Successfully transcribe the audio

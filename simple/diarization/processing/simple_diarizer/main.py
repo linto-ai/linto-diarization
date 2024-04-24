@@ -2,6 +2,7 @@ import os,sys,time
 import argparse
 from simple_diarizer.diarizer import Diarizer
 import pprint
+import json
 
 parser = argparse.ArgumentParser(
    description="Speaker diarization",
@@ -14,8 +15,7 @@ parser.add_argument("--embed_model", dest='embed_model', default="ecapa", type=s
 parser.add_argument("--number_of_speakers", dest='number_of_speaker', default=None, type=int, help="Number of speakers (if known)")
 parser.add_argument("--max_speakers", dest='max_speakers', default=25, type=int, help="Maximum number of speakers (if number of speaker is unknown)")
 parser.add_argument("--cluster_method", dest='cluster_method', default="nme-sc", type=str, help="Clustering method")
-parser.add_argument("--enable_speaker_identification", dest='enable_speaker_identification', default=False, type=bool, help="diarization w/o identification")
-parser.add_argument("--cand_speaker_names", dest='cand_speaker_names', type=str, nargs='+', default=[], help="Names of speaker")
+parser.add_argument("--cand_speaker_names", dest='cand_speaker_names',type=str, help="List of speaker ID")
 parser.add_argument("--device", dest='device', default=None, type=str, help="choise of cpu or cuda")
 args = parser.parse_args() 
 
@@ -29,18 +29,34 @@ WAV_FILE=args.audio_name
 num_speakers=args.number_of_speaker if args.number_of_speaker != "None" else None
 max_spk= args.max_speakers
 output_file=args.outputfile
-identification=args.enable_speaker_identification
 names_speaker=args.cand_speaker_names
-print(names_speaker)
+names_speaker=json.loads(names_speaker)
 
+speakers=[]
+for item in names_speaker:
+   if type(item)==int:
+      speakers.append(item)
+   elif type(item)==dict:
+      start=item['start']
+      end=item['end']
+      for x in range(start,end+1):         
+         speakers.append(x)
 
-
-
+import sqlite3
+conn=sqlite3.connect('speakers_database')
+c = conn.cursor()
+speakers_list=[]
+for i in speakers:
+    item=c.execute("SELECT Name FROM Speaker_names WHERE id = '%s'" % i)    
+    speakers_list.append(item.fetchone()[0])
+# Closing the connection 
+conn.close()
+print(speakers_list)
 
 
 t0 = time.time() 
 
-segments = diar.diarize(WAV_FILE, num_speakers=num_speakers,max_speakers=max_spk, identification = identification, spk_names=names_speaker,outfile=output_file)
+segments = diar.diarize(WAV_FILE, num_speakers=num_speakers,max_speakers=max_spk, spk_names=speakers_list,outfile=output_file)
 
 print("Time used for processing:", time.time() - t0)
 
