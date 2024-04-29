@@ -7,3 +7,4 @@ gevent
 pyyaml>=5.4.1
 supervisor>=4.2.2
 pyannote.audio
+speechbrain==0.5.16

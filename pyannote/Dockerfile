@@ -12,9 +12,9 @@ RUN apt-get update &&\
 
 # Download pyannote models
 RUN mkdir -p $HOME/.cache
-RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/pyannote-2.1.zip
-RUN unzip pyannote-2.1.zip -d $HOME/.cache/
-RUN rm pyannote-2.1.zip
+#RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/pyannote-2.1.zip
+#RUN unzip pyannote-2.1.zip -d $HOME/.cache/
+#RUN rm pyannote-2.1.zip
 
 RUN apt-get remove -y \
     wget \

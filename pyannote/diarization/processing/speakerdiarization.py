@@ -22,11 +22,17 @@ class SpeakerDiarization:
         self.log.info("Instanciating SpeakerDiarization")
         self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
         home = os.path.expanduser('~')
-
+        """
         self.pipeline = Pipeline.from_pretrained(
                 home + "/.cache/torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
                 cache_dir = home + "/.cache"
         )
+        """
+        self.pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",
+                                    use_auth_token="***",
+                                    cache_dir = home + "/.cache")
+        
+
     
     def run_pyannote(self, audioFile, number_speaker, max_speaker):
         
