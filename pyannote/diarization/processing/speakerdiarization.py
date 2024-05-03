@@ -58,7 +58,7 @@ class SpeakerDiarization:
         if number_speaker!= None:
             diarization = self.pipeline(audioFile, num_speakers=number_speaker)
         else:
-            diarization = self.pipeline(audioFile, min_speakers=2, max_speakers=max_speaker)
+            diarization = self.pipeline(audioFile) # , min_speakers=2, max_speakers=max_speaker)
         
         diarization=diarization.support(collar= self.tolerated_silence)
         json = {}
@@ -104,8 +104,8 @@ class SpeakerDiarization:
         return json
 
     def round(self, number):
-        # Return number with precision 0.01
-        return float("{:.2f}".format(number))
+        # Return number with precision 0.001
+        return float("{:.3f}".format(number))
 
 
     def run(self, file_path, number_speaker: int = None, max_speaker: int = None):
