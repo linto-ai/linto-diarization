@@ -8,10 +8,3 @@ BROKER_PASS=
 
 # CONCURRENCY
 CONCURRENCY=2
-
-# Enforce used device ("cpu" or "cuda")
-# DEVICE=cuda
-#DEVICE=cpu
-
-# Maximum number of threads on CPU
-NUM_THREADS=4
