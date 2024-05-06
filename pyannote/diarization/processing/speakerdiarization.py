@@ -2,15 +2,27 @@
 import logging
 import os
 import time
-import uuid
 import torchaudio
 from pyannote.audio import Pipeline, Audio
 import io
 import werkzeug
+import torch
 
 
 class SpeakerDiarization:
-    def __init__(self):
+    def __init__(self,
+        device=None,
+        num_threads=4,
+        tolerated_silence=0,
+        ):
+        """
+        Speaker Diarization class
+
+        Args:
+            device (str): device to use (cpu or cuda)
+            num_threads (int): number of threads to use
+            tolerated_silence (int): tolerated silence duration to merge same speaker segments (it was previously set to 3s)
+        """
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
 
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
@@ -19,24 +31,33 @@ class SpeakerDiarization:
         else:
             self.log.setLevel(logging.INFO)
 
-        self.log.info("Instanciating SpeakerDiarization")
-        self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
+        if device == None:
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.log.info(f"Instanciating SpeakerDiarization with device={device}" + (f" ({num_threads} threads)" if device == "cpu" else ""))
+        self.tolerated_silence = tolerated_silence
         home = os.path.expanduser('~')
-        """
+
+        model_configuration = "pyannote/speaker-diarization-3.1"
+        local_cache_yaml = {
+            "pyannote/speaker-diarization-2.1" : "torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
+            "pyannote/speaker-diarization-3.1" : "models--pyannote--speaker-diarization-3.1/snapshots/19c7c42a5047c3e982102ee1eb687ed866b4d193/config.yaml"
+        }
+        cache_parent_folder = os.path.join(home, ".cache")
+        model_configuration = os.path.join(cache_parent_folder, local_cache_yaml[model_configuration])
+
         self.pipeline = Pipeline.from_pretrained(
-                home + "/.cache/torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
-                cache_dir = home + "/.cache"
+            model_configuration,
+            cache_dir = cache_parent_folder
         )
-        """
-        self.pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization-3.1",
-                                    use_auth_token="***",
-                                    cache_dir = home + "/.cache")
-        
+
+        self.pipeline = self.pipeline.to(torch.device(device))
+        self.num_threads = num_threads
 
     
     def run_pyannote(self, audioFile, number_speaker, max_speaker):
         
         start_time = time.time()
+        torch.set_num_threads(self.num_threads)
 
         if isinstance(audioFile, io.IOBase):
             # Workaround for https://github.com/pyannote/pyannote-audio/issues/1179
@@ -53,20 +74,23 @@ class SpeakerDiarization:
             audioFile = {"audio": audioFile, "channel": 0}
 
         else:
-            raise ValueError(f"Unsupported audio file type {type(audioFile  )}")
+            raise ValueError(f"Unsupported audio file type {type(audioFile)}")
 
         if number_speaker!= None:
             diarization = self.pipeline(audioFile, num_speakers=number_speaker)
         else:
-            diarization = self.pipeline(audioFile) # , min_speakers=2, max_speakers=max_speaker)
+            diarization = self.pipeline(audioFile, min_speakers=1, max_speakers=max_speaker)
         
-        diarization=diarization.support(collar= self.tolerated_silence)
+        # Remove small silences inside speaker turns
+        if self.tolerated_silence:
+            diarization = diarization.support(collar= self.tolerated_silence)
+
         json = {}
         _segments=[]
         _speakers={}
         speaker_surnames = {}
         for iseg, (segment, track, speaker) in enumerate(diarization.itertracks(yield_label=True)):
-        
+
             # Convert speaker names to spk1, spk2, etc.
             if speaker not in speaker_surnames:
                 speaker_surnames[speaker] = "spk"+str(len(speaker_surnames)+1)
