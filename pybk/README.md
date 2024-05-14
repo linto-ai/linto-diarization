@@ -42,11 +42,8 @@ docker build . -t linto-diarization-pybk:latest -f pybk/Dockerfile
 ### HTTP
 
 **1- Fill the .env**
-```bash
-cp .envdefault .env
-```
 
-Fill the .env with your values.
+An example of .env file is provided in [pybk/.envdefault](https://github.com/linto-ai/linto-diarization/blob/master/pybk/.envdefault).
 
 **Parameters:**
 | Variables | Description | Example |
@@ -79,11 +76,8 @@ This will run a container providing an http API binded on the host HOST_SERVING_
 You need a message broker up and running at SERVICES_BROKER.
 
 **1- Fill the .env**
-```bash
-cp .envdefault .env
-```
 
-Fill the .env with your values.
+An example of .env file is provided in [pybk/.envdefault](https://github.com/linto-ai/linto-diarization/blob/master/pybk/.envdefault).
 
 **Parameters:**
 | Variables | Description | Example |

@@ -51,17 +51,14 @@ docker build . -t linto-diarization-simple:latest -f simple/Dockerfile
 ### HTTP
 
 **1- Fill the .env**
-```bash
-cp .envdefault .env
-```
 
-Fill the .env with your values.
+An example of .env file is provided in [simple/.envdefault](https://github.com/linto-ai/linto-diarization/blob/master/simple/.envdefault).
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
 | `SERVING_MODE` | (Required) Specify launch mode | `http` |
-| `CONCURRENCY` | Number of worker(s) | `1` \| `2` \| ... |
+| `CONCURRENCY` | Number of worker(s) additional to the main worker | `0` \| `1` \| `2` \| ... |
 | `DEVICE` | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
@@ -94,17 +91,15 @@ This will run a container providing an http API binded on the host `<HOST_SERVIN
 You need a message broker up and running at SERVICES_BROKER.
 
 **1- Fill the .env**
-```bash
-cp .envdefault .env
-```
 
-Fill the .env with your values.
+An example of .env file is provided in [simple/.envdefault](https://github.com/linto-ai/linto-diarization/blob/master/simple/.envdefault).
+
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
 | `SERVING_MODE` | (Required) Specify launch mode | `task` |
-| `CONCURRENCY` | Number of worker(s) | `1` \| `2` \| ... |
+| `CONCURRENCY` | Number of worker(s) additional to the main worker | `0` \| `1` \| `2` \| ... |
 | `DEVICE` | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
