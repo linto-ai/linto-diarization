@@ -29,6 +29,7 @@ COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY pyannote/diarization /usr/src/app/diarization
+COPY identification /usr/src/app/identification
 
 # Set VERSION number
 COPY pyannote/RELEASE.md ./

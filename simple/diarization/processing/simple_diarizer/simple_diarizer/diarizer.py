@@ -356,13 +356,10 @@ class Diarizer:
                 for spk_tag, spk_segments in speakers.items():  
                                                                     
                     spk_name = speaker_recognition(wav_file, voices_box, spk_names, spk_segments, identified)
-                    spk = spk_name                                        
-                    if spk=="unknown":                        
-                        identified.append(spk_tag)
-                        speaker_map[spk_tag] = spk_tag                        
-                    else:
-                        identified.append(spk)
-                        speaker_map[spk_tag] = spk                       
+                    if spk_name != "unknown":
+                         spk_tag = spk_name
+                    identified.append(spk_tag)
+                    speaker_map[spk_tag] = spk_tag                     
                     
                     
                 self.log(f"Done in {time.time() - tic:.3f} seconds")
