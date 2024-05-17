@@ -42,17 +42,17 @@ docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
 ### HTTP
 
 **1- Fill the .env**
-```bash
-cp .envdefault .env
-```
 
-Fill the .env with your values.
+An example of .env file is provided in [pyannote/.envdefault](https://github.com/linto-ai/linto-diarization/blob/master/pyannote/.envdefault).
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
-| SERVING_MODE | Specify launch mode | http |
-| CONCURRENCY | Number of HTTP worker* | 1+ |
+| `SERVING_MODE` | (Required) Specify launch mode | `http` |
+| `CONCURRENCY` | Number of worker(s) additional to the main worker | `0` \| `1` \| `2` \| ... |
+| `DEVICE` | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
+| `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 
 **2- Run the container**
 
@@ -82,24 +82,23 @@ This will run a container providing an http API binded on the host `<HOST_SERVIN
 You need a message broker up and running at SERVICES_BROKER.
 
 **1- Fill the .env**
-```bash
-cp .envdefault .env
-```
 
-Fill the .env with your values.
+An example of .env file is provided in [pyannote/.envdefault](https://github.com/linto-ai/linto-diarization/blob/master/pyannote/.envdefault).
 
 **Parameters:**
 | Variables | Description | Example |
 |:-|:-|:-|
-| SERVING_MODE | Specify launch mode | task |
-| SERVICES_BROKER | Service broker uri | redis://my_redis_broker:6379 |
-| BROKER_PASS | Service broker password (Leave empty if there is no password) | my_password |
-| QUEUE_NAME | (Optional) overide the generated queue's name (See Queue name bellow) | my_queue |
-| SERVICE_NAME | Service's name | diarization-ml |
-| LANGUAGE | Language code as a BCP-47 code | en-US or * or languages separated by "\|" |
-| MODEL_INFO | Human readable description of the model | Multilingual diarization model | 
-| CONCURRENCY | Number of worker (1 worker = 1 cpu) | >1 |
-| CUDA_VISIBLE_DEVICES | (Optional) GPU device index to use (empty list to force no GPU). We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
+| `SERVING_MODE` | (Required) Specify launch mode | `task` |
+| `CONCURRENCY` | Number of worker(s) additional to the main worker | `0` \| `1` \| `2` \| ... |
+| `DEVICE` | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
+| `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
+| `SERVICES_BROKER` | Service broker uri | `redis://my_redis_broker:6379` |
+| `BROKER_PASS` | Service broker password (Leave empty if there is no password) | `my_password` |
+| `QUEUE_NAME` | Overide the generated queue's name (See Queue name bellow) | `my_queue` |
+| `SERVICE_NAME` | Service's name | `diarization-ml` |
+| `LANGUAGE` | Language code as a BCP-47 code | `en-US` or * or languages separated by "\|" |
+| `MODEL_INFO` | Human readable description of the model | `Multilingual diarization model` |
 
 **2- Fill the docker-compose.yml**
 
