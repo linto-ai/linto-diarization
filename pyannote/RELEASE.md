@@ -1,3 +1,7 @@
+# 1.1.0
+- Integrate pyannote 3.1.1 with models configuration 3.1 https://huggingface.co/pyannote/speaker-diarization-3.1
+- add DEVICE and NUM_THREADS environment variables to control the device and number of threads used
+
 # 1.0.0
 - First build of linto-diarization-pyannote
 - Based on version 2.0.0 of linto-platform-diarization https://github.com/linto-ai/linto-platform-diarization/blob/b29be8189db51cd963f64bdeffb3d3024b999be0/RELEASE.md
