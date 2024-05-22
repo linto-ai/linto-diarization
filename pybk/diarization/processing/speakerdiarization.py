@@ -5,18 +5,13 @@ import time
 import uuid
 
 import librosa
+import memory_tempfile
 import numpy as np
-
 import pyBK.diarizationFunctions as pybk
-
+import werkzeug
 # from spafe.features.mfcc import mfcc, imfcc
 from pydub import AudioSegment
 from python_speech_features import mfcc
-
-import pyBK.diarizationFunctions as pybk
-
-import memory_tempfile
-import werkzeug
 
 
 class SpeakerDiarization:

@@ -5,6 +5,7 @@ from sklearn.cluster import SpectralClustering
 # NME low-level operations
 # These functions are taken from the Kaldi scripts.
 
+
 # Prepares binarized(0/1) affinity matrix with p_neighbors non-zero elements in each row
 def get_kneighbors_conn(X_dist, p_neighbors):
     X_dist_out = np.zeros_like(X_dist)
@@ -84,7 +85,9 @@ def NME_SpectralClustering(
     A, num_clusters=None, max_num_clusters=None, pbest=0, pmin=3, pmax=20
 ):
     if max_num_clusters is None:
-        assert num_clusters is not None, "Cannot have both num_clusters and max_num_clusters be None"
+        assert (
+            num_clusters is not None
+        ), "Cannot have both num_clusters and max_num_clusters be None"
         max_num_clusters = num_clusters
 
     if pbest == 0:
@@ -97,11 +100,9 @@ def NME_SpectralClustering(
                 rbest = r
                 pbest = p
                 kbest = k
-        
+
         num_clusters = num_clusters if num_clusters is not None else (kbest + 1)
-        return NME_SpectralClustering_sklearn(
-            A, num_clusters, pbest
-        )
+        return NME_SpectralClustering_sklearn(A, num_clusters, pbest)
 
     if num_clusters is None:
         e, g, k, r = ComputeNMEParameters(A, pbest, max_num_clusters)
@@ -122,12 +123,11 @@ Returns: cluster assignments for every speaker embedding
 
 
 def NME_SpectralClustering_sklearn(A, num_clusters, pbest):
-    
+
     # Ap = Threshold(A, pbest)
     Ap = get_kneighbors_conn(A, pbest)  # thresholded and binarized
     Ap = (Ap + np.transpose(Ap)) / 2
-    
-    
+
     model = SpectralClustering(
         n_clusters=num_clusters, affinity="precomputed", random_state=0
     )

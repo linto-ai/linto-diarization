@@ -1,10 +1,12 @@
-from speechbrain.pretrained import SpeakerRecognition
+import speechbrain
+if speechbrain.__version__ >= "1.0.0":
+   from speechbrain.inference.speaker import SpeakerRecognition
+else:
+   from speechbrain.pretrained import SpeakerRecognition
 import os
-#from pydub import AudioSegment
-import torchaudio
-import tempfile
 from collections import defaultdict
 import torch
+import torchaudio
 
 if torch.cuda.is_available():
     verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
@@ -21,8 +23,8 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
 
     id_count = defaultdict(int)
     # Load the WAV file    
-    audio, fs = torchaudio.load(file_name)  
-    
+    #audio, fs = torchaudio.load(file_name)  
+    audio=file_name
     i = 0
     
     '''
@@ -37,7 +39,7 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
         start = int(segment[0] * 16000 )  # start time in stamps
         end = int(segment[1] * 16000 )    # end time in stamps        
         clip = audio[:, start:end]        
-        if (end-start) < 600:          
+        if (end-start) < 600:    # ECAPA-TDNN embedding are only extracted for speech of duration > 0.15s      
           clip=torch.cat((clip, clip,clip, clip), 1)
           
         i = i + 1         
@@ -63,13 +65,8 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
                             person = speakerId
                         
 
-        id_count[person] += 1
-
-        # Delete the WAV file after processing
-        #os.remove(file)
-        
+        id_count[person] += 1        
         current_pred = max(id_count, key=id_count.get)
-
         duration += (end - start)
         
         if duration >= limit and current_pred != "unknown":

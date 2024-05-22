@@ -12,6 +12,7 @@ COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY simple/diarization /usr/src/app/diarization
+COPY identification /usr/src/app/identification
 COPY simple/requirements.txt /usr/src/app/
 COPY simple/RELEASE.md ./
 

@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
 import logging
 import os
-import time
-import memory_tempfile
-import werkzeug
-import torch
-
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer"))
+import time
 
+import memory_tempfile
+import torch
+import torchaudio
+import werkzeug
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer"))
 import simple_diarizer
 import simple_diarizer.diarizer
+
+sys.path.append(
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "identification"
+    )
+)
+import identification
+from identification.speaker_recognition import speaker_recognition
+
 
 class SpeakerDiarization:
     def __init__(self, device=None, num_threads=None):
@@ -30,53 +40,101 @@ class SpeakerDiarization:
             self.log.setLevel(logging.INFO)
 
         self.log.info(f"Simple diarization version {simple_diarizer.__version__}")
-        self.tolerated_silence = 3   #tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
+        self.tolerated_silence = 3  # tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
 
         self.diar = simple_diarizer.diarizer.Diarizer(
-                  embed_model='ecapa', # 'xvec' and 'ecapa' supported
-                  cluster_method='nme-sc', # 'ahc' 'sc' and 'nme-sc' supported
-                  device= self.device,
-                  num_threads=num_threads,
-               )
+            embed_model="ecapa",  # 'xvec' and 'ecapa' supported
+            cluster_method="nme-sc",  # 'ahc' 'sc' and 'nme-sc' supported
+            device=self.device,
+            num_threads=num_threads,
+        )
 
         self.tempfile = None
-    
-    def run_simple_diarizer(self, file_path, number_speaker, max_speaker,spk_names):
-        
+
+    def run_simple_diarizer(self, file_path, number_speaker, max_speaker):
+
         start_time = time.time()
 
         if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
 
             if self.tempfile is None:
-                self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
+                self.tempfile = memory_tempfile.MemoryTempfile(
+                    filesystem_types=["tmpfs", "shm"], fallback=True
+                )
                 self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
 
-            with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
+            with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 file_path.save(ntf.name)
-                return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker,spk_names)
-        
+                return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker)
+
+        audio, fs = torchaudio.load(file_path)
         diarization = self.diar.diarize(
             file_path,
             num_speakers=number_speaker,
-            max_speakers=max_speaker,            
-            spk_names=spk_names,
+            max_speakers=max_speaker,
             silence_tolerance=self.tolerated_silence,
-            threshold=3e-1
+            threshold=3e-1,
         )
-        
+
         # Approximate estimation of duration for RTF
         duration = diarization[-1]["end"] if len(diarization) > 0 else 1
-        # info = torchaudio.info(file_path)
-        # duration = info.num_frames / info.sample_rate
         self.log.info(
             "Speaker Diarization took %.3f[s] with a speed %0.2f[xRT]"
             % (
                 time.time() - start_time,
-                (time.time() - start_time)/ duration,
+                (time.time() - start_time) / duration,
             )
         )
-         
-        return self.format_response_id(diarization) if len(spk_names) > 0 else self.format_response(diarization)
+
+        return diarization, audio, self.format_response(diarization)
+
+    def run_identification(self, audioFile, diarization, spk_names):
+        if spk_names is not None and len(spk_names) > 0:
+            voices_box = "voices_ref"
+            speaker_tags = []
+            speakers = {}
+            common = []
+            speaker_map = {}
+
+            for seg in diarization:
+
+                start = seg["start"]
+                end = seg["end"]
+                speaker = "speaker_" + str(seg["label"])
+                common.append([start, end, speaker])
+
+                # find different speakers
+                if speaker not in speaker_tags:
+                    speaker_tags.append(speaker)
+                    speaker_map[speaker] = speaker
+                    speakers[speaker] = []
+
+                speakers[speaker].append([start, end, speaker])
+
+            if voices_box != None and voices_box != "":
+                identified = []
+                self.log.info("running speaker recognition...")
+                tic = time.time()
+
+                for spk_tag, spk_segments in speakers.items():
+                    spk_name = speaker_recognition(
+                        audioFile, voices_box, spk_names, spk_segments, identified
+                    )
+                    identified.append(spk_name)
+                    if spk_name != "unknown":
+                        speaker_map[spk_tag] = spk_name
+                    else:
+                        speaker_map[spk_tag] = spk_tag
+
+                self.log.info(
+                    f"Speaker recognition done in {time.time() - tic:.3f} seconds"
+                )
+
+            # fixing the speaker names in cleaned_segments
+            for seg in diarization:
+                speaker = "speaker_" + str(seg["label"])
+                seg["label"] = speaker_map[speaker]
+        return self.format_response_id(diarization)
 
     def format_response(self, segments: list) -> dict:
         #########################
@@ -118,29 +176,29 @@ class SpeakerDiarization:
         seg_id = 1
         spk_i = 1
         spk_i_dict = {}
-        
+
         for seg in segments:
-        
+
             segment = {}
             segment["seg_id"] = seg_id
 
             # Ensure speaker id continuity and numbers speaker by order of appearance.
-            if seg['label'] not in spk_i_dict.keys():
-                spk_i_dict[seg['label']] = spk_i
+            if seg["label"] not in spk_i_dict.keys():
+                spk_i_dict[seg["label"]] = spk_i
                 spk_i += 1
 
-            spk_id = "spk" + str(spk_i_dict[seg['label']])
+            spk_id = "spk" + str(spk_i_dict[seg["label"]])
             segment["spk_id"] = spk_id
-            segment["seg_begin"] = self.round(seg['start'])
-            segment["seg_end"] = self.round(seg['end'])
+            segment["seg_begin"] = self.round(seg["start"])
+            segment["seg_end"] = self.round(seg["end"])
 
             if spk_id not in _speakers:
                 _speakers[spk_id] = {}
                 _speakers[spk_id]["spk_id"] = spk_id
-                _speakers[spk_id]["duration"] = seg['end']-seg['start']
+                _speakers[spk_id]["duration"] = seg["end"] - seg["start"]
                 _speakers[spk_id]["nbr_seg"] = 1
             else:
-                _speakers[spk_id]["duration"] += seg['end']-seg['start']
+                _speakers[spk_id]["duration"] += seg["end"] - seg["start"]
                 _speakers[spk_id]["nbr_seg"] += 1
 
             _segments.append(segment)
@@ -152,7 +210,7 @@ class SpeakerDiarization:
         json["speakers"] = list(_speakers.values())
         json["segments"] = _segments
         return json
-    
+
     def format_response_id(self, segments: list) -> dict:
         #########################
         # Response format is
@@ -193,29 +251,29 @@ class SpeakerDiarization:
         seg_id = 1
         spk_i = 1
         spk_i_dict = {}
-        
-        for seg in segments:            
+
+        for seg in segments:
             segment = {}
             segment["seg_id"] = seg_id
 
             # Ensure speaker id continuity and numbers speaker by order of appearance.
-            if seg['label'] not in spk_i_dict.keys():
-                spk_i_dict[seg['label']] = spk_i
+            if seg["label"] not in spk_i_dict.keys():
+                spk_i_dict[seg["label"]] = spk_i
                 spk_i += 1
-            spk_i_dict[seg['label']]=seg['label']
-            spk_id = (spk_i_dict[seg['label']])
-            
+            spk_i_dict[seg["label"]] = seg["label"]
+            spk_id = spk_i_dict[seg["label"]]
+
             segment["spk_id"] = spk_id
-            segment["seg_begin"] = self.round(seg['start'])
-            segment["seg_end"] = self.round(seg['end'])
-            
+            segment["seg_begin"] = self.round(seg["start"])
+            segment["seg_end"] = self.round(seg["end"])
+
             if spk_id not in _speakers:
                 _speakers[spk_id] = {}
                 _speakers[spk_id]["spk_id"] = spk_id
-                _speakers[spk_id]["duration"] = seg['end']-seg['start']
+                _speakers[spk_id]["duration"] = seg["end"] - seg["start"]
                 _speakers[spk_id]["nbr_seg"] = 1
             else:
-                _speakers[spk_id]["duration"] += seg['end']-seg['start']
+                _speakers[spk_id]["duration"] += seg["end"] - seg["start"]
                 _speakers[spk_id]["nbr_seg"] += 1
 
             _segments.append(segment)
@@ -228,24 +286,31 @@ class SpeakerDiarization:
         json["segments"] = _segments
         return json
 
-    
     def round(self, x):
         return round(x, 2)
 
-    def run(self, file_path, number_speaker: int = None, max_speaker: int = None, spk_names: str = None ):
-        
+    def run(
+        self,
+        file_path,
+        number_speaker: int = None,
+        max_speaker: int = None,
+        spk_names: str = None,
+    ):
         if number_speaker is None and max_speaker is None:
-            raise Exception("Either number_speaker or max_speaker must be set")            
+            raise Exception("Either number_speaker or max_speaker must be set")
 
         self.log.debug(f"Starting diarization on file {file_path}")
         try:
-            return self.run_simple_diarizer(file_path, number_speaker = number_speaker, max_speaker = max_speaker,  spk_names=spk_names)
+            result, audio, json = self.run_simple_diarizer(
+                file_path, number_speaker=number_speaker, max_speaker=max_speaker
+            )
+            if spk_names is not None and len(spk_names) > 0:
+                result = self.run_identification(audio, result, spk_names=spk_names)
+                return result
+            else:
+                return json
         except Exception as e:
             self.log.error(e)
             raise Exception(
                 "Speaker diarization failed during processing the speech signal"
-            )    
-                
-        
-            
-
+            )

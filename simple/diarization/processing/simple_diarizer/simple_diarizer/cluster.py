@@ -1,10 +1,10 @@
 import numpy as np
-
 # import scipy.cluster.hierarchy as hcluster
 # from scipy.sparse.csgraph import laplacian
 from scipy.ndimage import gaussian_filter
 from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 from sklearn.metrics import pairwise_distances
+
 from .spectral_clustering import NME_SpectralClustering
 
 
@@ -40,7 +40,14 @@ def cluster_AHC(embeds, n_clusters=None, threshold=None, metric="cosine", **kwar
 # A lot of these methods are lifted from
 # https://github.com/wq2012/SpectralCluster
 ##########################################
-def cluster_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enhance_sim=True, **kwargs):
+def cluster_SC(
+    embeds,
+    n_clusters=None,
+    max_speakers=None,
+    threshold=None,
+    enhance_sim=True,
+    **kwargs,
+):
     """
     Cluster embeds using Spectral Clustering
     """
@@ -77,22 +84,27 @@ def cluster_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enha
         return cluster_model.fit_predict(S)
 
 
-def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enhance_sim=True, **kwargs):
+def cluster_NME_SC(
+    embeds,
+    n_clusters=None,
+    max_speakers=None,
+    threshold=None,
+    enhance_sim=True,
+    **kwargs,
+):
     """
     Cluster embeds using NME-Spectral Clustering
-    
+
     if n_clusters is None:
         assert threshold, "If num_clusters is not defined, threshold must be defined"
     """
-    
+
     S = cos_similarity(embeds)
 
     labels = NME_SpectralClustering(
-            S,
-            num_clusters=n_clusters,
-            max_num_clusters=max_speakers
-        )
-            
+        S, num_clusters=n_clusters, max_num_clusters=max_speakers
+    )
+
     return labels
 
 
@@ -148,7 +160,6 @@ def row_max_norm(A):
 def sim_enhancement(A):
     func_order = [
         diagonal_fill,
-        
         row_threshold_mult,
         symmetrization,
         diffusion,
@@ -157,6 +168,7 @@ def sim_enhancement(A):
     for f in func_order:
         A = f(A)
     return A
+
 
 def cos_similarity(x):
     """Compute cosine similarity matrix in CPU & memory sensitive way

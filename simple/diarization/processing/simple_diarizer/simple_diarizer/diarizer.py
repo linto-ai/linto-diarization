@@ -1,17 +1,16 @@
 import os
 import sys
+import time
 from copy import deepcopy
 
 import numpy as np
 import torch
 import torchaudio
-import time
 from speechbrain.inference.speaker import EncoderClassifier
 from tqdm.autonotebook import tqdm
 
-from .cluster import cluster_AHC, cluster_SC, cluster_NME_SC
+from .cluster import cluster_AHC, cluster_NME_SC, cluster_SC
 from .utils import check_wav_16khz_mono, convert_wavfile
-from .speaker_recognition import speaker_recognition
 
 
 class Diarizer:
@@ -57,7 +56,9 @@ class Diarizer:
         if not num_threads:
             num_threads = torch.get_num_threads()
 
-        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu (with {num_threads} CPU threads)")
+        self.log(
+            f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu (with {num_threads} CPU threads)"
+        )
 
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
@@ -205,15 +206,12 @@ class Diarizer:
             seg["start"] = seg["start"] / fs
             seg["end"] = seg["end"] / fs
         return cleaned_segments
-    
-    
 
     def diarize(
         self,
         wav_file,
         num_speakers=2,
-        max_speakers=None,        
-        spk_names=None,
+        max_speakers=None,
         threshold=None,
         silence_tolerance=0.2,
         enhance_sim=True,
@@ -315,7 +313,7 @@ class Diarizer:
                     cleaned_segments, silence_tolerance=silence_tolerance
                 )
                 self.log(f"Done in {time.time() - tic:.3f} seconds")
-                
+
             else:
                 self.log("No need to cluster")
                 cluster_labels = [1]
@@ -324,56 +322,9 @@ class Diarizer:
 
         else:
             cleaned_segments = []
-        
-        if spk_names is not None and len(spk_names) > 0:
 
-            voices_box="voices_ref"
-            speaker_tags = []
-            speakers = {}
-            common = []        
-            speaker_map = {}
-                 
-            for seg in cleaned_segments:
-                
-                start =  (seg['start'])
-                end = (seg['end'])
-                speaker = "speaker_" + str(seg['label'])
-                common.append([start, end, speaker])
-
-                # find different speakers
-                if speaker not in speaker_tags:
-                    speaker_tags.append(speaker)
-                    speaker_map[speaker] = speaker
-                    speakers[speaker] = []
-
-                speakers[speaker].append([start, end, speaker])
-            
-            if voices_box != None and voices_box != "":
-                identified = []            
-                self.log("running speaker recognition...")
-                tic = time.time()
-
-                for spk_tag, spk_segments in speakers.items():  
-                                                                    
-                    spk_name = speaker_recognition(wav_file, voices_box, spk_names, spk_segments, identified)
-                    if spk_name != "unknown":
-                         spk_tag = spk_name
-                    identified.append(spk_tag)
-                    speaker_map[spk_tag] = spk_tag                     
-                    
-                    
-                self.log(f"Done in {time.time() - tic:.3f} seconds")
-            
-                                
-            # fixing the speaker names in cleaned_segments                
-            for seg in cleaned_segments:
-                speaker = "speaker_" + str(seg['label'])  
-                seg['label'] = speaker_map[speaker]
-                
-                       
-            
         if outfile:
-                self.rttm_output(cleaned_segments, recname, outfile=outfile)
+            self.rttm_output(cleaned_segments, recname, outfile=outfile)
 
         if not extra_info:
             return cleaned_segments
@@ -383,7 +334,7 @@ class Diarizer:
                 "embeds": embeds,
                 "segments": segments,
                 "cluster_labels": cluster_labels,
-            }    
+            }
 
     @staticmethod
     def rttm_output(segments, recname, outfile=None, channel=0):
