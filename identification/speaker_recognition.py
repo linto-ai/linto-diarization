@@ -141,6 +141,8 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
         _speakers = {}
         speaker_surnames = {}
         for iseg, segment in enumerate(diarization["segments"]):
+            start = segment["seg_begin"]
+            end = segment["seg_end"]
             speaker = segment["spk_id"]
 
             # Convert speaker names to spk1, spk2, etc.
@@ -150,7 +152,6 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
                 )
             speaker = speaker_surnames[speaker]
             speaker_name = speaker_map[speaker]
-            
             if speaker_name == "unknown":
                 speaker_name = speaker
 
@@ -160,17 +161,11 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
 
             if speaker_name not in _speakers:
                 _speakers[speaker_name] = {"spk_id": speaker_name}
-                _speakers[speaker_name]["duration"] = round(
-                    segment.end - segment.start
-                )
+                _speakers[speaker_name]["duration"] = round(end - start)
                 _speakers[speaker_name]["nbr_seg"] = 1
             else:
-                _speakers[speaker_name]["duration"] += round(
-                    segment.end - segment.start
-                )
+                _speakers[speaker_name]["duration"] += round(end - start)
                 _speakers[speaker_name]["nbr_seg"] += 1
-
-                _segments.append(segment)
 
         json["speakers"] = list(_speakers.values())
         json["segments"] = _segments
