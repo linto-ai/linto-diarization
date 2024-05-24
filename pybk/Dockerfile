@@ -31,6 +31,7 @@ COPY document /usr/src/app/document
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY pybk/diarization /usr/src/app/diarization
 COPY pybk/pyBK/diarizationFunctions.py pyBK/diarizationFunctions.py
+COPY identification /usr/src/app/identification
 
 # Grep CURRENT VERSION
 COPY pybk/RELEASE.md ./

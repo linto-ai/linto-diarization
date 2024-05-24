@@ -17,3 +17,5 @@ spafe
 pydub
 python_speech_features
 redis
+speechbrain==1.0.0
+torchaudio==2.2.1

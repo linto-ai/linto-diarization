@@ -89,8 +89,8 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
             audioFile.save(ntf.name)
             return run_speaker_identification(ntf.name, diarization, spk_names)
         
-    audio, fs = torchaudio.load(audioFile)      
-
+    audio, fs = torchaudio.load(audioFile)
+    
     if spk_names is not None and len(spk_names) > 0:
 
         voices_box = "voices_ref"
