@@ -19,7 +19,7 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_recognition import speaker_recognition
+from identification.speaker_recognition import run_speaker_identification
 
 
 class SpeakerDiarization:
@@ -86,55 +86,7 @@ class SpeakerDiarization:
             )
         )
 
-        return diarization, audio, self.format_response(diarization)
-
-    def run_identification(self, audioFile, diarization, spk_names):
-        if spk_names is not None and len(spk_names) > 0:
-            voices_box = "voices_ref"
-            speaker_tags = []
-            speakers = {}
-            common = []
-            speaker_map = {}
-
-            for seg in diarization:
-
-                start = seg["start"]
-                end = seg["end"]
-                speaker = "speaker_" + str(seg["label"])
-                common.append([start, end, speaker])
-
-                # find different speakers
-                if speaker not in speaker_tags:
-                    speaker_tags.append(speaker)
-                    speaker_map[speaker] = speaker
-                    speakers[speaker] = []
-
-                speakers[speaker].append([start, end, speaker])
-
-            if voices_box != None and voices_box != "":
-                identified = []
-                self.log.info("running speaker recognition...")
-                tic = time.time()
-
-                for spk_tag, spk_segments in speakers.items():
-                    spk_name = speaker_recognition(
-                        audioFile, voices_box, spk_names, spk_segments, identified
-                    )
-                    identified.append(spk_name)
-                    if spk_name != "unknown":
-                        speaker_map[spk_tag] = spk_name
-                    else:
-                        speaker_map[spk_tag] = spk_tag
-
-                self.log.info(
-                    f"Speaker recognition done in {time.time() - tic:.3f} seconds"
-                )
-
-            # fixing the speaker names in cleaned_segments
-            for seg in diarization:
-                speaker = "speaker_" + str(seg["label"])
-                seg["label"] = speaker_map[speaker]
-        return self.format_response_id(diarization)
+        return self.format_response(diarization)
 
     def format_response(self, segments: list) -> dict:
         #########################
@@ -301,14 +253,12 @@ class SpeakerDiarization:
 
         self.log.debug(f"Starting diarization on file {file_path}")
         try:
-            result, audio, json = self.run_simple_diarizer(
+            result = self.run_simple_diarizer(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )
             if spk_names is not None and len(spk_names) > 0:
-                result = self.run_identification(audio, result, spk_names=spk_names)
-                return result
-            else:
-                return json
+                result = run_speaker_identification(file_path, result, spk_names=spk_names)
+            return result
         except Exception as e:
             self.log.error(e)
             raise Exception(

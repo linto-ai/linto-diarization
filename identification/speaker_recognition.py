@@ -7,6 +7,10 @@ import os
 from collections import defaultdict
 import torch
 import torchaudio
+import time
+
+import memory_tempfile
+import werkzeug
 
 if torch.cuda.is_available():
     verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
@@ -14,7 +18,7 @@ else:
     verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cpu"})
 
 # recognize speaker name
-def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildcards):
+def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards):
     
     if len(cand_speakers) > 0:
         speakers = cand_speakers
@@ -22,9 +26,6 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
         speakers = os.listdir(voices_folder)
 
     id_count = defaultdict(int)
-    # Load the WAV file    
-    #audio, fs = torchaudio.load(file_name)  
-    audio=file_name
     i = 0
     
     '''
@@ -76,3 +77,106 @@ def speaker_recognition(file_name, voices_folder, cand_speakers, segments, wildc
     
     return most_common_Id
 
+
+def run_speaker_identification(audioFile, diarization, spk_names, log=None):
+
+    if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
+        tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
+        if log:
+            log.info(f"Using temporary folder {tempfile.gettempdir()}")
+
+        with tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
+            audioFile.save(ntf.name)
+            return run_speaker_identification(ntf.name, diarization, spk_names)
+        
+    audio, fs = torchaudio.load(audioFile)      
+
+    if spk_names is not None and len(spk_names) > 0:
+
+        voices_box = "voices_ref"
+        speaker_tags = []
+        speakers = {}
+        common = []
+        speaker_map = {}
+        speaker_surnames = {}
+
+        for segment in diarization["segments"]:
+
+            start = segment["seg_begin"]
+            end = segment["seg_end"]
+            speaker = segment["spk_id"]
+            common.append([start, end, speaker])
+
+            # find different speakers
+            if speaker not in speaker_tags:
+                speaker_tags.append(speaker)
+                speaker_map[speaker] = speaker
+                speakers[speaker] = []
+
+            speakers[speaker].append([start, end, speaker])
+
+        if voices_box != None and voices_box != "":
+            identified = []
+            if log:
+                log.info("running speaker recognition...")
+            tic = time.time()
+
+            for spk_tag, spk_segments in speakers.items():
+                spk_name = speaker_recognition(
+                    audio, voices_box, spk_names, spk_segments, identified
+                )
+                identified.append(spk_name)
+                if spk_name != "unknown":
+                    speaker_map[spk_tag] = spk_name
+                else:
+                    speaker_map[spk_tag] = spk_tag
+
+            if log:
+                log.info(
+                    f"Speaker recognition done in {time.time() - tic:.3f} seconds"
+                )
+
+        json = {}
+        _segments = []
+        _speakers = {}
+        speaker_surnames = {}
+        for iseg, segment in enumerate(diarization["segments"]):
+            speaker = segment["spk_id"]
+
+            # Convert speaker names to spk1, spk2, etc.
+            if speaker not in speaker_surnames:
+                speaker_surnames[speaker] = (
+                    speaker  # "spk"+str(len(speaker_surnames)+1)
+                )
+            speaker = speaker_surnames[speaker]
+            speaker_name = speaker_map[speaker]
+            
+            if speaker_name == "unknown":
+                speaker_name = speaker
+
+            segment["spk_id"] = speaker_name
+
+            _segments.append(segment)
+
+            if speaker_name not in _speakers:
+                _speakers[speaker_name] = {"spk_id": speaker_name}
+                _speakers[speaker_name]["duration"] = round(
+                    segment.end - segment.start
+                )
+                _speakers[speaker_name]["nbr_seg"] = 1
+            else:
+                _speakers[speaker_name]["duration"] += round(
+                    segment.end - segment.start
+                )
+                _speakers[speaker_name]["nbr_seg"] += 1
+
+                _segments.append(segment)
+
+        json["speakers"] = list(_speakers.values())
+        json["segments"] = _segments
+
+        return json
+
+def round(number):
+    # Return number with precision 0.001
+    return float("{:.3f}".format(number))
