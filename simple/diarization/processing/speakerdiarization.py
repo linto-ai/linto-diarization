@@ -55,19 +55,6 @@ class SpeakerDiarization:
 
         start_time = time.time()
 
-        if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
-
-            if self.tempfile is None:
-                self.tempfile = memory_tempfile.MemoryTempfile(
-                    filesystem_types=["tmpfs", "shm"], fallback=True
-                )
-                self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
-
-            with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
-                file_path.save(ntf.name)
-                return self.run_simple_diarizer(ntf.name, number_speaker, max_speaker)
-
-        audio, fs = torchaudio.load(file_path)
         diarization = self.diar.diarize(
             file_path,
             num_speakers=number_speaker,
@@ -246,8 +233,20 @@ class SpeakerDiarization:
         file_path,
         number_speaker: int = None,
         max_speaker: int = None,
-        spk_names: str = None,
+        spk_names = None,
     ):
+
+        if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
+            if self.tempfile is None:
+                self.tempfile = memory_tempfile.MemoryTempfile(
+                    filesystem_types=["tmpfs", "shm"], fallback=True
+                )
+                self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
+
+            with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
+                file_path.save(ntf.name)
+                return self.run(ntf.name, number_speaker, max_speaker, spk_names=spk_names)
+
         if number_speaker is None and max_speaker is None:
             raise Exception("Either number_speaker or max_speaker must be set")
 
@@ -256,7 +255,7 @@ class SpeakerDiarization:
             result = self.run_simple_diarizer(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )
-            if spk_names is not None and len(spk_names) > 0:
+            if spk_names:
                 result = run_speaker_identification(file_path, result, spk_names=spk_names)
             return result
         except Exception as e:

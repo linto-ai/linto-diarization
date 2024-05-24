@@ -142,15 +142,28 @@ class SpeakerDiarization:
         file_path,
         number_speaker: int = None,
         max_speaker: int = None,
-        spk_names: str = None,
+        spk_names = None,
     ):
         self.log.info(f"Starting diarization on file {file_path}")
+
+        # If we run both speaker diarization and speaker identification, we need to save the file
+        if spk_names and isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
+
+            if self.tempfile is None:
+                self.tempfile = memory_tempfile.MemoryTempfile(
+                    filesystem_types=["tmpfs", "shm"], fallback=True
+                )
+                self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
+
+            with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
+                file_path.save(ntf.name)
+                return self.run(ntf.name, number_speaker, max_speaker, spk_names=spk_names)
 
         try:
             result = self.run_pyannote(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )
-            if spk_names is not None and len(spk_names) > 0:
+            if spk_names:
                 result = run_speaker_identification(file_path, result, spk_names=spk_names)
             return result
         except Exception as e:
