@@ -6,7 +6,7 @@ from scipy.ndimage import gaussian_filter
 from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 from sklearn.metrics import pairwise_distances
 from .spectral_clustering import NME_SpectralClustering
-
+from sklearn.metrics.pairwise import cosine_similarity
 
 def cluster_AHC(embeds, n_clusters=None, threshold=None, metric="cosine", **kwargs):
     """
@@ -85,7 +85,8 @@ def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, 
         assert threshold, "If num_clusters is not defined, threshold must be defined"
     """
     
-    S = cos_similarity(embeds)
+    #S = cos_similarity(embeds)
+    S =  getCosAffinityMatrix(embeds)
 
     labels = NME_SpectralClustering(
             S,
@@ -96,7 +97,16 @@ def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, 
             
     return labels
 
-
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler(feature_range=(0, 1))
+def getCosAffinityMatrix(emb):
+    """
+    Calculate cosine similarity values among speaker embeddings.
+    """
+    sim_d = cosine_similarity(emb)
+    scaler.fit(sim_d)
+    sim_d = scaler.transform(sim_d)
+    return sim_d
 def diagonal_fill(A):
     """
     Sets the diagonal elemnts of the matrix to the max of each row

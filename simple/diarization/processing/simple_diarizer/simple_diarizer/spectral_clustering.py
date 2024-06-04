@@ -70,7 +70,6 @@ def ComputeNMEParameters(A, p, max_num_clusters, device):
     
     return (e, g, k, r)
 
-
 """
 Performs spectral clustering with Normalized Maximum Eigengap (NME)
 Parameters:
@@ -81,7 +80,19 @@ Parameters:
    pbest: best count for matrix binarization (if 0, determined automatically)
 Returns: cluster assignments for every speaker embedding   
 """
-
+def getPvalueList(mat,max_rp_threshold):
+        """
+        Generates a p-value (p_neighbour) list for searching.
+        """     
+           
+        max_N = int(mat.shape[0] * max_rp_threshold)                   
+        
+        N = min(max_N, 30)
+        p_value_list = list(np.linspace(1, max_N, N, endpoint=True).astype(int))
+        
+        if p_value_list ==[] :
+            p_value_list= range(1,mat.shape[0])
+        return p_value_list
 
 def NME_SpectralClustering(
     A, num_clusters=None, max_num_clusters=None, pbest=0, pmin=3, pmax=20, device=None
@@ -89,12 +100,13 @@ def NME_SpectralClustering(
     if max_num_clusters is None:
         assert num_clusters is not None, "Cannot have both num_clusters and max_num_clusters be None"
         max_num_clusters = num_clusters
-
+   
     if pbest == 0:
         # Selecting best number of neighbors for affinity matrix thresolding
         rbest = None
         kbest = None
-        for p in range(pmin, pmax + 1):
+        p_value_list = getPvalueList(A,0.25)  
+        for p in p_value_list:
             e, g, k, r = ComputeNMEParameters(A, p, max_num_clusters,device)
             if rbest is None or rbest > r:
                 rbest = r
