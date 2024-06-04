@@ -209,7 +209,7 @@ class Diarizer:
         self,
         wav_file,
         num_speakers=2,
-        max_speakers=None,
+        max_speakers=25,
         threshold=None,
         silence_tolerance=0.2,
         enhance_sim=True,
