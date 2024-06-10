@@ -25,8 +25,7 @@ from identification.speaker_recognition import run_speaker_identification
 class SpeakerDiarization:
     def __init__(self, device=None, num_threads=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
-        self.log.info("Instanciating SpeakerDiarization")
-
+        self.log.info("Instanciating SpeakerDiarization")              
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
@@ -176,7 +175,7 @@ class SpeakerDiarization:
             raise Exception("Either number_speaker or max_speaker must be set")
 
         self.log.debug(f"Starting diarization on file {file_path}")
-        try:
+        try:                       
             result = self.run_simple_diarizer(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )

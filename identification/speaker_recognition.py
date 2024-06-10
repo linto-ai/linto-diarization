@@ -1,8 +1,8 @@
 import speechbrain
 if speechbrain.__version__ >= "1.0.0":
-   from speechbrain.inference.speaker import SpeakerRecognition
+   from speechbrain.inference.speaker import SpeakerRecognition, EncoderClassifier
 else:
-   from speechbrain.pretrained import SpeakerRecognition
+   from speechbrain.pretrained import SpeakerRecognition, EncoderClassifier
 import os
 from collections import defaultdict
 import torch
@@ -11,15 +11,29 @@ import time
 
 import memory_tempfile
 import werkzeug
-
+import pickle as pkl
 if torch.cuda.is_available():
     verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
+    embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
 else:
     verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cpu"})
+    embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cpu"})
+
+#Calculte embeddings in voices_ref
+def speaker_ref_embedding(voice_ref,embedding_dir):
+    for root, dirs, files in os.walk(voice_ref):
+        for file in files:
+            if file.endswith(".wav"):
+                name = os.path.splitext(os.path.basename(file))[0]                
+                voice_file_audio,_ = torchaudio.load(os.path.join(root, file))
+                spk_embed = embed_model.encode_batch(voice_file_audio)                      
+                embeddings_file = embedding_dir+'/' + name + '.pkl'                
+                pkl.dump(spk_embed, open(embeddings_file, 'wb'))
+    
 
 # recognize speaker name
 def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards):
-    
+    similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
     if len(cand_speakers) > 0:
         speakers = cand_speakers
     else:
@@ -45,25 +59,24 @@ def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards
           
         i = i + 1         
         max_score = 0
-        person = "unknown"      # if no match to any voice, then return unknown
-        
-        for speaker in speakers:            
-            voices = os.listdir(voices_folder + "/" + speaker)
-           
-            for voice in voices:
-                voice_file = voices_folder + "/" + speaker + "/" + voice                
-                
-                # compare voice file with audio fil
-                voice_file_audio,_ = torchaudio.load(voice_file)
-                score, prediction = verification.verify_batch(voice_file_audio, clip)                            
-                prediction = prediction[0].item()
-                score = score[0].item()                                
-                if prediction == True:
-                    if score >= max_score:
-                        max_score = score
-                        speakerId = speaker.split(".")[0]                         
-                        if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
-                            person = speakerId
+        person = "unknown"      # if no match to any voice, then return unknown        
+              
+                          
+        for speaker in speakers:                
+            embed_file = voices_folder + "/" + "embeddings" + "/" + speaker + ".pkl"             
+            # compare voice file with audio fil                
+            with (open(embed_file, "rb")) as openfile:                    
+                    emb1=pkl.load(openfile)
+                    
+            emb2 = embed_model.encode_batch(clip)                
+            score = similarity(emb1, emb2)  
+            score=score[0]                           
+            if score > 0.25:                
+                if score >= max_score:
+                    max_score = score
+                    speakerId = speaker.split(".")[0]                                                
+                    if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
+                        person = speakerId
                         
 
         id_count[person] += 1        
@@ -79,7 +92,7 @@ def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards
 
 
 def run_speaker_identification(audioFile, diarization, spk_names, log=None):
-
+    
     if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
         tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
         if log:
@@ -93,7 +106,7 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
     
     if spk_names is not None and len(spk_names) > 0:
 
-        voices_box = "voices_ref"
+        voices_box = "voices_ref"        
         speaker_tags = []
         speakers = {}
         common = []
@@ -124,7 +137,7 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
             for spk_tag, spk_segments in speakers.items():
                 spk_name = speaker_recognition(
                     audio, voices_box, spk_names, spk_segments, identified
-                )
+                )                
                 identified.append(spk_name)
                 if spk_name != "unknown":
                     speaker_map[spk_tag] = spk_name
