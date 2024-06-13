@@ -13,14 +13,14 @@ import simple_diarizer
 import simple_diarizer.diarizer
 
 class SpeakerDiarization:
-    def __init__(self, device=None, num_threads=None):
+    def __init__(self, device=None, device_clustering=None, num_threads=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
         self.log.info("Instanciating SpeakerDiarization")
 
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
-
+        self.device_clustering = device_clustering
         self.num_threads = num_threads
 
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
@@ -36,6 +36,7 @@ class SpeakerDiarization:
                   embed_model='ecapa', # 'xvec' and 'ecapa' supported
                   cluster_method='nme-sc', # 'ahc' 'sc' and 'nme-sc' supported
                   device= self.device,
+                  device_clustering=self.device_clustering,
                   num_threads=num_threads,
                )
 

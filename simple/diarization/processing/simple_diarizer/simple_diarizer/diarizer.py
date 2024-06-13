@@ -22,6 +22,7 @@ class Diarizer:
         period=0.75,
         device=None,
         device_vad="cpu",
+        device_clustering=None,
         num_threads=None,
         logger=None,
     ):
@@ -56,7 +57,9 @@ class Diarizer:
         if not num_threads:
             num_threads = torch.get_num_threads()
 
-        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu (with {num_threads} CPU threads)")
+        self.cuda = True if device_clustering=="cuda" and torch.cuda.is_available() else  False
+        
+        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering={device_clustering} (with {num_threads} CPU threads)")
 
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
@@ -72,7 +75,7 @@ class Diarizer:
             )
 
         self.window = window
-        self.period = period
+        self.period = period        
 
     def setup_VAD(self, device):
         self.device_vad = device
@@ -303,6 +306,7 @@ class Diarizer:
                     max_speakers=max_speakers,
                     threshold=threshold,
                     enhance_sim=enhance_sim,
+                    cuda=self.cuda
                 )
 
                 cleaned_segments = self.join_segments(cluster_labels, segments)

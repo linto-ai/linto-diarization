@@ -11,6 +11,7 @@ CONCURRENCY=2
 
 # Enforce used device ("cpu" or "cuda")
 # DEVICE=cpu
+DEVICE_Clustering=cpu
 
 # Maximum number of threads on CPU
 NUM_THREADS=4
