@@ -12,7 +12,7 @@ else
     # Check if Celery worker process is running
     # warning : We might rework this when switching to non-root user. Which is required for security reasons.
     # Our docker images are currently running as root and this is bad :)
-    if ! pgrep -f "celery worker"; then
+    if ! pgrep -f "celeryapp worker"; then
         echo "HealtchCheck FAIL : Celery worker process not running"
         exit 1
     fi
