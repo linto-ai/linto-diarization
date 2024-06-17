@@ -11,7 +11,7 @@ from tqdm.autonotebook import tqdm
 
 from .cluster import cluster_AHC, cluster_SC, cluster_NME_SC
 from .utils import check_wav_16khz_mono, convert_wavfile
-
+from .utils_vad import get_speech_timestamps,OnnxWrapper
 
 class Diarizer:
     def __init__(
@@ -76,27 +76,24 @@ class Diarizer:
 
         self.window = window
         self.period = period        
-
+    
     def setup_VAD(self, device):
         self.device_vad = device
-        use_gpu = device != "cpu"
-        model, utils = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad",
-            model="silero_vad",
-            onnx=not use_gpu,
-            # map_location=device
-        )
+        use_gpu = device != "cpu"        
+        dirname = os.path.dirname(__file__)        
+        model = OnnxWrapper(f"{dirname}/silero_vad.onnx")      
         if use_gpu:
             model = model.to(device)
         # force_reload=True)
 
-        get_speech_ts = utils[0]
+        get_speech_ts = get_speech_timestamps
         return model, get_speech_ts
 
     def vad(self, signal):
         """
         Runs the VAD model on the signal
         """
+        print(self.vad_model)
         return self.get_speech_ts(signal.to(self.device_vad), self.vad_model)
 
     def windowed_embeds(self, signal, fs, window=1.5, period=0.75):

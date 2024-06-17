@@ -5,7 +5,6 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 from sklearn.metrics import pairwise_distances
-from .spectral_clustering import NME_SpectralClustering
 
 from .nmesc_clustering import (
     NMESC,
