@@ -1,3 +1,6 @@
+# 1.1.1
+- Fix healthcheck on GPU
+
 # 1.1.0
 - Integrate pyannote 3.1.1 with models configuration 3.1 https://huggingface.co/pyannote/speaker-diarization-3.1
 - add DEVICE and NUM_THREADS environment variables to control the device and number of threads used
