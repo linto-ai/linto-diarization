@@ -8,3 +8,5 @@ pyyaml>=5.4.1
 supervisor>=4.2.2
 pyannote.audio==3.1.1
 speechbrain==0.5.16
+# Version 2 of numpy breaks pyannote 3.1.1 (use of np.NaN instead of np.nan)
+numpy<2
