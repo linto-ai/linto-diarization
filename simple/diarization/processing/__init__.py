@@ -3,11 +3,14 @@ import os
 
 
 device = os.environ.get("DEVICE")
+device_clustering = os.environ.get("DEVICE_CLUSTERING")
 if device is None:
    USE_GPU = torch.cuda.is_available()
 else:
    USE_GPU = (device != "cpu")
-device_clustering = os.environ.get("DEVICE_Clustering")
+if device_clustering is None:
+   device_clustering = "cuda" if torch.cuda.is_available() else "cpu"
+
 # Number of CPU threads
 NUM_THREADS = os.environ.get("NUM_THREADS", torch.get_num_threads())
 NUM_THREADS = int(NUM_THREADS)
