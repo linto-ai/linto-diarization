@@ -59,7 +59,9 @@ An example of .env file is provided in [simple/.envdefault](https://github.com/l
 |:-|:-|:-|
 | `SERVING_MODE` | (Required) Specify launch mode | `http` |
 | `CONCURRENCY` | Number of worker(s) additional to the main worker | `0` \| `1` \| `2` \| ... |
-| `DEVICE` | Device to use for the model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| `DEVICE` | Device to use for the embedding model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| `DEVICE_VAD` | Device to use for Voice Activity Detection (by default, CPU) | `cpu` \| `cuda` |
+| `DEVICE_CLUSTERING` | Device to use for clustering (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 

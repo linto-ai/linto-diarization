@@ -48,16 +48,18 @@ class Diarizer:
         default_device = "cuda" if torch.cuda.is_available() else "cpu"
         if device_vad is None:
             device_vad = default_device
+        if device_clustering is None:
+            device_clustering = default_device
+        if device is None:
+            device = default_device
 
         self.vad_model, self.get_speech_ts = self.setup_VAD(device_vad)
 
-        if device is None:
-            device = default_device
         self.num_threads = num_threads
         if not num_threads:
             num_threads = torch.get_num_threads()
 
-        self.cuda = True if device_clustering=="cuda" and torch.cuda.is_available() else  False
+        self.cuda_clustering = device_clustering not in ["cpu", torch.device("cpu")]
         
         self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering={device_clustering} (with {num_threads} CPU threads)")
 
@@ -303,7 +305,7 @@ class Diarizer:
                     max_speakers=max_speakers,
                     threshold=threshold,
                     enhance_sim=enhance_sim,
-                    cuda=self.cuda
+                    cuda=self.cuda_clustering
                 )
 
                 cleaned_segments = self.join_segments(cluster_labels, segments)
