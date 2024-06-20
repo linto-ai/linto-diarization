@@ -11,7 +11,6 @@ CONCURRENCY=2
 
 # Enforce used device ("cpu" or "cuda")
 # DEVICE=cpu
-# DEVICE_VAD=cpu
 # DEVICE_CLUSTERING=cpu
 
 # Maximum number of threads on CPU

@@ -244,7 +244,7 @@ def addAnchorEmb(emb, anchor_sample_n, anchor_spk_n, sigma):
     return new_emb_np
 
 
-def getEnhancedSpeakerCount(emb, cuda, random_test_count=5, anchor_spk_n=3, anchor_sample_n=10, sigma=50):
+def getEnhancedSpeakerCount(emb, device, random_test_count=5, anchor_spk_n=3, anchor_sample_n=10, sigma=50):
     """
     Calculate the number of speakers using NME analysis with anchor embeddings.
     """
@@ -261,7 +261,7 @@ def getEnhancedSpeakerCount(emb, cuda, random_test_count=5, anchor_spk_n=3, anch
             sparse_search_volume=30,
             fixed_thres=None,
             NME_mat_size=300,
-            cuda=cuda,
+            device=device,
         )
         est_num_of_spk, _ = nmesc.NMEanalysis()
         est_num_of_spk_list.append(est_num_of_spk)
@@ -293,7 +293,11 @@ def getLaplacian(X):
     return L
 
 
-def eigDecompose(laplacian, cuda, device=None):
+def eigDecompose(laplacian, device=None, cuda=None):
+    if cuda is None:
+       if device is None:
+           device = "cuda" if torch.cuda.is_available() else "cpu"
+       cuda = device not in ["cpu", torch.device("cpu")] 
     if TORCH_EIGN:
         if cuda:
             if device is None:
@@ -315,18 +319,18 @@ def getLamdaGaplist(lambdas):
     return list(lambdas[1:] - lambdas[:-1])
 
 
-def estimateNumofSpeakers(affinity_mat, max_num_speaker, is_cuda=False):
+def estimateNumofSpeakers(affinity_mat, max_num_speaker, device=None):
     """
     Estimate the number of speakers using eigen decompose on laplacian Matrix.
     affinity_mat: (array)
         NxN affitnity matrix
     max_num_speaker: (int)
         Maximum number of clusters to consider for each session
-    is_cuda: (bool)
-        if cuda availble eigh decomposition would be computed on GPUs
+    device: (str)
+        "cuda", "cpu", ...
     """
     laplacian = getLaplacian(affinity_mat)
-    lambdas, _ = eigDecompose(laplacian, is_cuda)
+    lambdas, _ = eigDecompose(laplacian, device)
     lambdas = np.sort(lambdas)
     lambda_gap_list = getLamdaGaplist(lambdas)
 
@@ -335,33 +339,33 @@ def estimateNumofSpeakers(affinity_mat, max_num_speaker, is_cuda=False):
 
 
 class _SpectralClustering:
-    def __init__(self, n_clusters=8, random_state=0, n_init=10, p_value=10, n_jobs=None, cuda=False):
+    def __init__(self, n_clusters=8, random_state=0, n_init=10, p_value=10, n_jobs=None, device=None):
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.n_init = n_init
         self.p_value = p_value
         self.affinity_matrix_ = None
-        self.cuda = cuda
+        self.device = device
 
     def predict(self, X):
         if X.shape[0] != X.shape[1]:
             raise ValueError("The affinity matrix is not a square matrix.")
 
         self.affinity_matrix_ = X
-        labels = self.clusterSpectralEmbeddings(self.affinity_matrix_, n_init=self.n_init, cuda=self.cuda)
+        labels = self.clusterSpectralEmbeddings(self.affinity_matrix_, n_init=self.n_init, device=self.device)
         return labels
 
-    def clusterSpectralEmbeddings(self, affinity, n_init=10, cuda=False):
-        spectral_emb = self.getSpectralEmbeddings(affinity, n_spks=self.n_clusters, drop_first=False, cuda=cuda)
+    def clusterSpectralEmbeddings(self, affinity, n_init=10, device=False):
+        spectral_emb = self.getSpectralEmbeddings(affinity, n_spks=self.n_clusters, drop_first=False, device=device)
         _, labels, _ = k_means(spectral_emb, self.n_clusters, random_state=self.random_state, n_init=n_init)
         return labels
 
-    def getSpectralEmbeddings(self, affinity_mat, n_spks=8, drop_first=True, cuda=False):
+    def getSpectralEmbeddings(self, affinity_mat, n_spks=8, drop_first=True, device=None):
         if not isGraphFullyConnected(affinity_mat):
             logging.warning("Graph is not fully connected and the clustering result might not be accurate.")
 
         laplacian = getLaplacian(affinity_mat)
-        lambdas_, diffusion_map_ = eigDecompose(laplacian, cuda)
+        lambdas_, diffusion_map_ = eigDecompose(laplacian, device)
         diffusion_map = diffusion_map_[:, :n_spks]
         embedding = diffusion_map.T[n_spks::-1]
         return embedding[:n_spks].T
@@ -416,7 +420,7 @@ class NMESC:
         sparse_search_volume=30,
         use_subsampling_for_NME=True,
         fixed_thres=None,
-        cuda=False,
+        device=None,
         NME_mat_size=512,
     ):
         """
@@ -451,8 +455,8 @@ class NMESC:
                 threshold with NME analysis. If fixed_thres is float,
                 it skips NME analysis part.
 
-            cuda: (bool)
-                Use cuda for Eigen decomposition if cuda=True.
+            device: (str)
+                "cpu", "cuda"....
 
             NME_mat_size: (int)
                 Targeted size of matrix for NME analysis.
@@ -466,7 +470,7 @@ class NMESC:
         self.sparse_search = sparse_search
         self.sparse_search_volume = sparse_search_volume
         self.fixed_thres = fixed_thres
-        self.cuda = cuda
+        self.device = device
         self.eps = 1e-10
         self.max_N = None
         self.mat = mat
@@ -550,7 +554,7 @@ class NMESC:
         affinity_mat = getAffinityGraphMat(self.mat, p_neighbors)
         if self.max_num_speaker is None:
             self.max_num_speaker=25
-        est_num_of_spk, lambdas, lambda_gap_list = estimateNumofSpeakers(affinity_mat, self.max_num_speaker, self.cuda)
+        est_num_of_spk, lambdas, lambda_gap_list = estimateNumofSpeakers(affinity_mat, self.max_num_speaker, self.device)
         arg_sorted_idx = np.argsort(lambda_gap_list[: self.max_num_speaker])[::-1]
         max_key = arg_sorted_idx[0]
         max_eig_gap = lambda_gap_list[max_key] / (max(lambdas) + self.eps)
@@ -588,7 +592,7 @@ def COSclustering(
     max_rp_threshold=0.25,
     sparse_search_volume=30,
     fixed_thres=None,
-    cuda=False,
+    device=None,
 ):
     """
     Clustering method for speaker diarization based on cosine similarity.
@@ -643,7 +647,7 @@ def COSclustering(
     if emb.shape[0] == 1:
         return np.array([0])
     elif emb.shape[0] <= max(enhanced_count_thres, min_samples_for_NMESC) and oracle_num_speakers is None:
-        est_num_of_spk_enhanced = getEnhancedSpeakerCount(emb, cuda)
+        est_num_of_spk_enhanced = getEnhancedSpeakerCount(emb, device)
     else:
         est_num_of_spk_enhanced = None
 
@@ -660,7 +664,7 @@ def COSclustering(
         sparse_search_volume=sparse_search_volume,
         fixed_thres=fixed_thres,
         NME_mat_size=300,
-        cuda=cuda,
+        device=device,
     )
 
     if emb.shape[0] > min_samples_for_NMESC:
@@ -674,7 +678,7 @@ def COSclustering(
     elif est_num_of_spk_enhanced:
         est_num_of_spk = est_num_of_spk_enhanced
 
-    spectral_model = _SpectralClustering(n_clusters=est_num_of_spk, cuda=cuda)
+    spectral_model = _SpectralClustering(n_clusters=est_num_of_spk, device=device)
     Y = spectral_model.predict(affinity_mat)
 
     return Y

@@ -17,7 +17,7 @@ class Diarizer:
     def __init__(
         self,
         embed_model="xvec",
-        cluster_method="sc",
+        cluster_method="nme-sc",
         window=1.5,
         period=0.75,
         device=None,
@@ -40,10 +40,12 @@ class Diarizer:
 
         if cluster_method == "ahc":
             self.cluster = cluster_AHC
-        if cluster_method == "sc":
+        elif cluster_method == "sc":
             self.cluster = cluster_SC
-        if cluster_method == "nme-sc":
+        elif cluster_method == "nme-sc":
             self.cluster = cluster_NME_SC
+        else:
+            raise ValueError(f"Invalid cluster method '{cluster_method}'")
 
         default_device = "cuda" if torch.cuda.is_available() else "cpu"
         if device_vad is None:
@@ -53,16 +55,16 @@ class Diarizer:
         if device is None:
             device = default_device
 
+        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering={device_clustering} (with {num_threads} CPU threads)")
+
         self.vad_model, self.get_speech_ts = self.setup_VAD(device_vad)
 
         self.num_threads = num_threads
         if not num_threads:
             num_threads = torch.get_num_threads()
 
-        self.cuda_clustering = device_clustering not in ["cpu", torch.device("cpu")]
+        self.device_clustering = device_clustering
         
-        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering={device_clustering} (with {num_threads} CPU threads)")
-
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
                 source="speechbrain/spkrec-xvect-voxceleb",
@@ -85,8 +87,8 @@ class Diarizer:
         dirname = os.path.dirname(__file__)        
         model = OnnxWrapper(f"{dirname}/silero_vad.onnx")      
         if use_gpu:
+            raise NotImplementedError("VAD model does not support GPU")
             model = model.to(device)
-        # force_reload=True)
 
         get_speech_ts = get_speech_timestamps
         return model, get_speech_ts
@@ -95,7 +97,6 @@ class Diarizer:
         """
         Runs the VAD model on the signal
         """
-        print(self.vad_model)
         return self.get_speech_ts(signal.to(self.device_vad), self.vad_model)
 
     def windowed_embeds(self, signal, fs, window=1.5, period=0.75):
@@ -305,7 +306,7 @@ class Diarizer:
                     max_speakers=max_speakers,
                     threshold=threshold,
                     enhance_sim=enhance_sim,
-                    cuda=self.cuda_clustering
+                    device=self.device_clustering
                 )
 
                 cleaned_segments = self.join_segments(cluster_labels, segments)

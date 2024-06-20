@@ -83,7 +83,7 @@ def cluster_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enha
         return cluster_model.fit_predict(S)
 
 
-def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enhance_sim=True, cuda=None, **kwargs):
+def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enhance_sim=True, device=None, **kwargs):
     """
     Cluster embeds using NME-Spectral Clustering
     """
@@ -109,7 +109,7 @@ def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, 
         sparse_search_volume=30,
         fixed_thres=None,
         NME_mat_size=512,
-        cuda=cuda
+        device=device
         
     )
     
@@ -118,7 +118,7 @@ def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, 
     affinity_mat = getAffinityGraphMat(mat, p_hat_value)
     if n_clusters is not None:
         est_num_of_spk = n_clusters
-    spectral_model = _SpectralClustering(n_clusters=est_num_of_spk, cuda=cuda)
+    spectral_model = _SpectralClustering(n_clusters=est_num_of_spk, device=device)
     labels = spectral_model.predict(affinity_mat)
           
     return labels
