@@ -1,8 +1,11 @@
 import os
 
 from celery_app.celeryapp import celery
+from celery.signals import celeryd_after_setup
 from diarization.processing import diarizationworker
 from diarization import logger
+
+_context = {}
 
 @celery.task(name="diarization_task")
 def diarization_task(
@@ -22,6 +25,11 @@ def diarization_task(
     if speaker_count and max_speaker:
         max_speaker = None
 
+    try:
+        _context['worker'].consumer.connection.heartbeat_check()
+    except: # ConnectionForced
+        pass
+
     # Processing
     try:
         result = diarizationworker.run(
@@ -36,3 +44,11 @@ def diarization_task(
         raise Exception(msg)  # from err
 
     return result
+
+@celeryd_after_setup.connect
+def setup(sender, instance, **kwargs):
+    """
+    Get a handle to the worker object so that we can send heartbeats
+    when running in 'solo' mode
+    """
+    _context['worker'] = instance
