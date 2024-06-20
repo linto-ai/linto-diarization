@@ -1,3 +1,6 @@
+# 1.0.2
+- Fix healthcheck on GPU
+
 # 1.0.1
 - Add DEVICE environment variable to enforce using CPU ("cpu") or GPU ("cuda")
 - Fix multi-threading, and add NUM_THREADS environment variable to control the maximum number of threads
