@@ -127,11 +127,30 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
             audioFile.save(ntf.name)
             return run_speaker_identification(ntf.name, diarization, spk_names)
         
-    audio, fs = torchaudio.load(audioFile)
-    conn=sqlite3.connect('voices_ref/speakers_database')
-    c = conn.cursor()
+    audio, fs = torchaudio.load(audioFile)    
+    speakers=[]
+    if len(spk_names) > 1:
+        for item in spk_names:
+            if type(item)==int:
+                speakers.append(item)
+            elif type(item)==dict:
+                start=item['start']
+                end=item['end']
+                for x in range(start,end+1):         
+                    speakers.append(x) 
+    else:
+            
+        _, _, embeds = next(os.walk("voices_ref/embeddings")) 
+        print(embeds)           
+        start=1
+        end=len(embeds)
+        for x in range(start,end+1):         
+            speakers.append(x)   
+    
     speakers_list=[]
-    for i in spk_names:        
+    conn=sqlite3.connect('voices_ref/speakers_database')
+    c = conn.cursor()    
+    for i in speakers:        
         item=c.execute("SELECT Name FROM Speaker_names WHERE id = '%s'" % i)                  
         speakers_list.append(item.fetchone()[0])   
 
