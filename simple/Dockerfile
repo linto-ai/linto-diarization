@@ -1,31 +1,4 @@
-# base stage target - common dependencies
-FROM python:3.10-slim as base
-
-# Set a common work directory
-WORKDIR /usr/src/app
-
-# Installing dependencies
-
-# Copy application code
-COPY celery_app /usr/src/app/celery_app
-COPY http_server /usr/src/app/http_server
-COPY document /usr/src/app/document
-COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
-COPY simple/diarization /usr/src/app/diarization
-COPY identification /usr/src/app/identification
-COPY simple/requirements.txt /usr/src/app/
-COPY simple/RELEASE.md ./
-
-############################################################################################################
-
-# Here we might build a specific image for the CPU target, use different dependencies, entrypoints, etc.
-# using  : FROM base as cpu
-# not relevant for this dockerfile
-
-############################################################################################################
-
-# gpu stage target - python app with nvidia/cuda base image
-FROM nvidia/cuda:12.3.2-base-ubuntu22.04 as gpu
+FROM python:3.10
 LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com"
 
 # Re-Sets work directory (not sure if this is necessary)
@@ -38,13 +11,23 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     ln -s /usr/bin/python3.10 /usr/bin/python
 
+# # Set a common work directory
+WORKDIR /usr/src/app
+
 # Install python packages
 # Reuse labels and base dependencies from the base stage
-COPY --from=base /usr/src/app/requirements.txt /usr/src/app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY simple/requirements.txt /usr/src/app/requirements.txt
+RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
-# Reuse labels and base dependencies from the base stage
-COPY --from=base /usr/src/app /usr/src/app
+
+# Copy application code
+COPY celery_app /usr/src/app/celery_app
+COPY http_server /usr/src/app/http_server
+COPY document /usr/src/app/document
+COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
+COPY simple/diarization /usr/src/app/diarization
+COPY simple/requirements.txt /usr/src/app/
+COPY simple/RELEASE.md ./
 
 # Set path
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"

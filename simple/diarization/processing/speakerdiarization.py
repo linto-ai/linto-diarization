@@ -23,13 +23,14 @@ from identification.speaker_recognition import run_speaker_identification
 
 
 class SpeakerDiarization:
-    def __init__(self, device=None, num_threads=None):
+    def __init__(self, device=None, device_vad=None, device_clustering=None, num_threads=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
         self.log.info("Instanciating SpeakerDiarization")              
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
-
+        self.device_vad = device_vad
+        self.device_clustering = device_clustering
         self.num_threads = num_threads
 
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
@@ -42,11 +43,13 @@ class SpeakerDiarization:
         self.tolerated_silence = 3  # tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
 
         self.diar = simple_diarizer.diarizer.Diarizer(
-            embed_model="ecapa",  # 'xvec' and 'ecapa' supported
-            cluster_method="nme-sc",  # 'ahc' 'sc' and 'nme-sc' supported
-            device=self.device,
-            num_threads=num_threads,
-        )
+                  embed_model='ecapa', # 'xvec' and 'ecapa' supported
+                  cluster_method='nme-sc', # 'ahc' 'sc' and 'nme-sc' supported
+                  device= self.device,
+                  device_vad=self.device_vad,
+                  device_clustering=self.device_clustering,
+                  num_threads=num_threads,
+               )
 
         self.tempfile = None
 
