@@ -23,7 +23,7 @@ else
         exit 0
     else
         # If GPU is not being utilized, attempt a ping as a secondary check
-        if ! celery --app=celery_app.celeryapp inspect ping -d ${SERVICE_NAME}_worker@$HOSTNAME --timeout=20; then
+        if ! celery --app=celery_app.celeryapp inspect ping -d diarization_worker@$HOSTNAME --timeout=20; then
             echo "HealtchCheck FAIL : Celery worker not responding in time and GPU is not being utilized"
             exit 1
         fi
