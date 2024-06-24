@@ -17,8 +17,7 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_recognition import run_speaker_identification
-
+from identification.speaker_recognition import run_speaker_identification, run_db_emb
 
 class SpeakerDiarization:
     def __init__(
@@ -35,6 +34,8 @@ class SpeakerDiarization:
             num_threads (int): number of threads to use
             tolerated_silence (int): tolerated silence duration to merge same speaker segments (it was previously set to 3s)
         """
+        self.log = logging.getLogger("__speaker-identification-initialization")
+        run_db_emb("voices_ref")
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
             self.log.setLevel(logging.DEBUG)
@@ -163,7 +164,7 @@ class SpeakerDiarization:
             result = self.run_pyannote(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )
-            if spk_names:
+            if spk_names:                
                 result = run_speaker_identification(file_path, result, spk_names=spk_names)
             return result
         except Exception as e:

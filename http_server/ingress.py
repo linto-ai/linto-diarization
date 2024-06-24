@@ -10,7 +10,6 @@ from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 import sqlite3
 from diarization.processing import diarizationworker, USE_GPU
-from identification.speaker_recognition import speaker_ref_embedding
 
 app = Flask("__diarization-serving__")
 
@@ -30,8 +29,7 @@ def healthcheck():
 def oas_docs():
     return "Not Implemented", 501
 
-def create_embeds(): 
-    speaker_ref_embedding("voices_ref","voices_ref/embeddings")  
+
 @app.route("/diarization", methods=["POST"])
 def transcribe():
     try:
@@ -66,17 +64,8 @@ def transcribe():
                         for x in range(start,end+1):         
                             speakers.append(x)
                 
+                speakers_list=speakers
                 
-                conn=sqlite3.connect('voices_ref/speakers_database')
-                c = conn.cursor()
-                speakers_list=[]
-                for i in speakers:
-                    
-                    item=c.execute("SELECT Name FROM Speaker_names WHERE id = '%s'" % i)                  
-                    speakers_list.append(item.fetchone()[0])   
-
-                # Closing the connection 
-                conn.close() 
             else:
                 speakers_list=[]
             
@@ -127,8 +116,7 @@ def server_error(error):
 if __name__ == "__main__":
     logger.info("Startup...")
 
-    parser = createParser()
-    create_embeds()
+    parser = createParser()    
     args = parser.parse_args()
     logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
     try:

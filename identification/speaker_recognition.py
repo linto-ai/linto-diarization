@@ -12,12 +12,37 @@ import time
 import memory_tempfile
 import werkzeug
 import pickle as pkl
+import sqlite3
 if torch.cuda.is_available():
     verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
     embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
 else:
     verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cpu"})
     embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cpu"})
+
+#create db file from voices_ref
+def create_db(directory):        
+        # Create connection
+        conn = sqlite3.connect(directory+"/speakers_database")
+        cur = conn.cursor()
+        # Creating and inserting into table
+        cur.execute("""CREATE TABLE IF NOT EXISTS Speaker_names (id integer, Name TEXT, audio_file TEXT UNIQUE)""")
+        i=0
+        for root, dirnames, filenames in os.walk(directory):
+            for filename in filenames:                
+                if filename.endswith(".wav"):
+                    i=i+1
+                    id=i
+                    recname = filename.split('.')[0]                     
+                    cur.execute("INSERT OR IGNORE INTO Speaker_names (id, Name, audio_file) VALUES (?, ?, ?)", (id,recname,filename))
+            conn.commit()
+        
+def create_embeds(wav_ref_folder,wav_ref_emb): 
+    speaker_ref_embedding(wav_ref_folder,wav_ref_emb) 
+
+def run_db_emb (wav_ref_folder):
+    create_db(wav_ref_folder)
+    create_embeds(wav_ref_folder,wav_ref_folder+"/embeddings")
 
 #Calculte embeddings in voices_ref
 def speaker_ref_embedding(voice_ref,embedding_dir):
@@ -27,7 +52,7 @@ def speaker_ref_embedding(voice_ref,embedding_dir):
                 name = os.path.splitext(os.path.basename(file))[0]                
                 voice_file_audio,_ = torchaudio.load(os.path.join(root, file))
                 spk_embed = embed_model.encode_batch(voice_file_audio)                      
-                embeddings_file = embedding_dir+'/' + name + '.pkl'                
+                embeddings_file = embedding_dir+'/' + name + '.pkl'
                 pkl.dump(spk_embed, open(embeddings_file, 'wb'))
     
 
@@ -63,7 +88,7 @@ def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards
               
                           
         for speaker in speakers:                
-            embed_file = voices_folder + "/" + "embeddings" + "/" + speaker + ".pkl"             
+            embed_file = voices_folder + "/" + "embeddings" + "/" + speaker + ".pkl"                         
             # compare voice file with audio fil                
             with (open(embed_file, "rb")) as openfile:                    
                     emb1=pkl.load(openfile)
@@ -72,9 +97,9 @@ def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards
             score = similarity(emb1, emb2)  
             score=score[0]                           
             if score > 0.25:                
-                if score >= max_score:
+                if score >= max_score:                    
                     max_score = score
-                    speakerId = speaker.split(".")[0]                                                
+                    speakerId = speaker.split(".")[0]                                                                  
                     if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
                         person = speakerId
                         
@@ -103,7 +128,16 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
             return run_speaker_identification(ntf.name, diarization, spk_names)
         
     audio, fs = torchaudio.load(audioFile)
-    
+    conn=sqlite3.connect('voices_ref/speakers_database')
+    c = conn.cursor()
+    speakers_list=[]
+    for i in spk_names:        
+        item=c.execute("SELECT Name FROM Speaker_names WHERE id = '%s'" % i)                  
+        speakers_list.append(item.fetchone()[0])   
+
+    # Closing the connection 
+    conn.close() 
+    spk_names=speakers_list
     if spk_names is not None and len(spk_names) > 0:
 
         voices_box = "voices_ref"        
