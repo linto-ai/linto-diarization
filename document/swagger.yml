@@ -37,11 +37,11 @@ paths:
         type: integer
       - name: "max_speaker"
         in: "formData"
-        description: "Max number of speakers if spk_number is unknown"
+        description: "Max number of speakers if the number of speaker is unknown"
         required: false
         type: integer      
-      - name: "speakers_name"
-        description: "List of candidate speaker"
+      - name: "speaker_names"
+        description: "List of candidate speakers (if samples were provided to perform speaker identification)"
         in: formData
         type: string        
       responses:

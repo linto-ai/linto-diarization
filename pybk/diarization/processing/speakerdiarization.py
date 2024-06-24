@@ -272,7 +272,7 @@ class SpeakerDiarization:
         json["segments"] = _segments
         return json
 
-    def run(self, audioFile, number_speaker: int = None, max_speaker: int = None, spk_names = None):
+    def run(self, audioFile, number_speaker: int = None, max_speaker: int = None, speaker_names = None):
         self.log.debug(f"Starting diarization on file {audioFile}")
         if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
             if self.tempfile is None:
@@ -283,7 +283,7 @@ class SpeakerDiarization:
 
             with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 audioFile.save(ntf.name)
-                return self.run(ntf.name, number_speaker, max_speaker, spk_names=spk_names)
+                return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
         try:
             start_time = time.time()
             self.log.debug(
@@ -428,8 +428,8 @@ class SpeakerDiarization:
                     float(int(time.time() - start_time) / duration),
                 )
             )
-            if spk_names:
-                result = run_speaker_identification(audioFile, result, spk_names=spk_names)
+            if speaker_names:
+                result = run_speaker_identification(audioFile, result, speaker_names=speaker_names)
             return result
         except ValueError as v:
             self.log.error(v)

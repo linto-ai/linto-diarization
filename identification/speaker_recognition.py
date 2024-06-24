@@ -13,103 +13,165 @@ import memory_tempfile
 import werkzeug
 import pickle as pkl
 import sqlite3
+import glob
+from tqdm import tqdm
+
+# TODO : use an environment variable to set the device
 if torch.cuda.is_available():
-    verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
-    embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cuda"})
+    device="cuda"
 else:
-    verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cpu"})
-    embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb",run_opts={"device":"cpu"})
+    device="cpu"
 
-#create db file from voices_ref
-def create_db(directory):        
-        # Create connection
-        conn = sqlite3.connect(directory+"/speakers_database")
-        cur = conn.cursor()
-        # Creating and inserting into table
-        cur.execute("""CREATE TABLE IF NOT EXISTS Speaker_names (id integer, Name TEXT, audio_file TEXT UNIQUE)""")
-        i=0
-        for root, dirnames, filenames in os.walk(directory):
-            for filename in filenames:                
-                if filename.endswith(".wav"):
-                    i=i+1
-                    id=i
-                    recname = filename.split('.')[0]                     
-                    cur.execute("INSERT OR IGNORE INTO Speaker_names (id, Name, audio_file) VALUES (?, ?, ?)", (id,recname,filename))
-            conn.commit()
-        
-def create_embeds(wav_ref_folder,wav_ref_emb): 
-    speaker_ref_embedding(wav_ref_folder,wav_ref_emb) 
+# verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb", run_opts={"device":device})
+embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb", run_opts={"device":device})
 
-def run_db_emb (wav_ref_folder):
-    create_db(wav_ref_folder)
-    create_embeds(wav_ref_folder,wav_ref_folder+"/embeddings")
+# Constants (that could be env variables)
+_FOLDER_WAV = "voices_ref"
+_FOLDER_INTERNAL = f"{_FOLDER_WAV}/internal"
+_FOLDER_EMBEDDINGS = f"{_FOLDER_INTERNAL}/embeddings"
+_FILE_DATABASE = f"{_FOLDER_INTERNAL}/speakers_database"
 
-#Calculte embeddings in voices_ref
-def speaker_ref_embedding(voice_ref,embedding_dir):
-    os.makedirs(embedding_dir, exist_ok=True)
-    for root, dirs, files in os.walk(voice_ref):
-        for file in files:
-            if file.endswith(".wav"):
-                name = os.path.splitext(os.path.basename(file))[0]                
-                voice_file_audio,_ = torchaudio.load(os.path.join(root, file))
-                spk_embed = embed_model.encode_batch(voice_file_audio)                      
-                embeddings_file = embedding_dir+'/' + name + '.pkl'
-                pkl.dump(spk_embed, open(embeddings_file, 'wb'))
+_UNKNOWN = "<<UNKNOWN>>"
+
+
+def initialize_speaker_identification(log):
+    initialize_db(log)
+    initialize_embeddings(log)
+
+
+def is_speaker_identification_enabled():
+    return os.path.isdir(_FOLDER_WAV)
+
+# Create / update / check database
+def initialize_db(log):
+    if not is_speaker_identification_enabled():
+        if log: log.info(f"Speaker identification is disabled")
+        return
+    if log: log.info(f"Speaker identification is enabled")
+    os.makedirs(_FOLDER_INTERNAL, exist_ok=True)
+    # Create connection
+    conn = sqlite3.connect(_FILE_DATABASE)
+    cur = conn.cursor()
+    # Creating and inserting into table
+    cur.execute("""CREATE TABLE IF NOT EXISTS speaker_names (id integer UNIQUE, Name TEXT UNIQUE)""")
+    for id, speaker_name in enumerate(_get_speakers()):
+        cur.execute("INSERT OR IGNORE INTO speaker_names (id, Name) VALUES (?, ?)", (id+1,speaker_name))
+    conn.commit()
+
+def get_all_ids():
+    conn=sqlite3.connect(_FILE_DATABASE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM speaker_names")
+    ids = c.fetchall()
+    conn.close()
+    return ids
+
+
+# Pre-compute and store reference speaker embeddings
+def initialize_embeddings(log):
+    if not is_speaker_identification_enabled():
+        return
+    os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
+    speakers = list(_get_speakers())
+    for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
+        audio_files = _get_speaker_sample_files(speaker_name)
+        assert len(audio_files) > 0, f"No audio files found for speaker {speaker_name}"
+        audio_file = audio_files[0]
+        # TODO: convert to 16kHz if needed ! (or fail if not 16kHz...)
+        audio, sample_rate = torchaudio.load(audio_file)
+        spk_embed = embed_model.encode_batch(audio)
+        # Note: it is important to save the embeddings on the CPU (to be able to load them on the CPU later on)
+        spk_embed = spk_embed.cpu()
+        embeddings_file = _get_speaker_embeddings_file(speaker_name)
+        pkl.dump(spk_embed, open(embeddings_file, 'wb'))
+    if log: log.info(f"Speaker identification initialized with {len(speakers)} speakers")
     
+
+def _get_speaker_embeddings_file(speaker_name):
+    return os.path.join(_FOLDER_EMBEDDINGS, speaker_name + '.pkl')
+
+def _get_speaker_sample_files(speaker_name):
+    audio_files = glob.glob(os.path.join(_FOLDER_WAV, speaker_name + '.*'))
+    return audio_files
+
+def _get_speakers():
+    assert os.path.isdir(_FOLDER_WAV)
+    for file in os.listdir(_FOLDER_WAV):
+        audio_file = os.path.join(_FOLDER_WAV, file)
+        if not os.path.isfile(audio_file):
+            continue
+        speaker_name = os.path.splitext(file)[0]
+        yield speaker_name
+
+
+
 
 # recognize speaker name
-def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards):
+def speaker_recognition(
+    audio,
+    speaker_names,
+    segments,
+    exclude_speakers,
+    min_similarity=0.25,
+    sample_rate=16_000,
+    limit_duration=60,
+    ):
+    """
+    Recognize speaker name from segments of an audio file
+
+    Args:
+        audio (torch.Tensor): audio waveform
+        speaker_names (list): list of reference speaker names
+        segments (list): list of segments to analyze (tuples of start and end times in seconds)
+        exclude_speakers (list): list of speaker names to exclude
+        min_similarity (float): minimum similarity to consider a speaker match
+        sample_rate (int): audio sample rate
+        limit_duration (int): maximum duration (in seconds) of speech to identify a speaker (the first seconds of speech will be used, the other will be ignored)
+    """
+
     similarity = torch.nn.CosineSimilarity(dim=-1, eps=1e-6)
-    if len(cand_speakers) > 0:
-        speakers = cand_speakers
-    else:
-        speakers = os.listdir(voices_folder)
+    assert len(speaker_names) > 0
 
     id_count = defaultdict(int)
-    i = 0
-    
-    '''
-    iterate over segments and check speaker for increased accuracy.
-    assign speaker name to arbitrary speaker tag 'SPEAKER_XX'
-    '''
-
-    limit = 60 * 16000   #maximum duration of speech in samples to try speaker ID
+    limit = limit_duration * sample_rate
     duration = 0
     
-    for segment in segments:
-        start = int(segment[0] * 16000 )  # start time in stamps
-        end = int(segment[1] * 16000 )    # end time in stamps        
-        clip = audio[:, start:end]        
-        if (end-start) < 600:    # ECAPA-TDNN embedding are only extracted for speech of duration > 0.15s      
-          clip=torch.cat((clip, clip,clip, clip), 1)
+    for start, end in segments:
+        start = int(start * sample_rate)
+        end = int(end * sample_rate)
+        clip = audio[:, start:end]
+        # ECAPA-TDNN embedding are only extracted for speech of duration > 0.15s
+        # TODO: make this more explicit, and stress tests on the limit
+        if (end-start) < 600:
+            clip=torch.cat((clip, clip, clip, clip), 1)
           
-        i = i + 1         
-        max_score = 0
-        person = "unknown"      # if no match to any voice, then return unknown        
-              
-                          
-        for speaker in speakers:                
-            embed_file = voices_folder + "/" + "embeddings" + "/" + speaker + ".pkl"                         
-            # compare voice file with audio fil                
-            with (open(embed_file, "rb")) as openfile:                    
-                    emb1=pkl.load(openfile)
-                    
-            emb2 = embed_model.encode_batch(clip)                
-            score = similarity(emb1, emb2)  
-            score=score[0]                           
-            if score > 0.25:                
-                if score >= max_score:                    
-                    max_score = score
-                    speakerId = speaker.split(".")[0]                                                                  
-                    if speakerId not in wildcards:        # speaker_00 cannot be speaker_01
-                        person = speakerId
-                        
+        max_score = min_similarity
+        person = _UNKNOWN # if no match to any voice, then return unknown
 
-        id_count[person] += 1        
+        # TODO: we probably want to "transpose the for loops" to avoid loading the embeddings at each iteration
+        #       (if segments are all super short, this could be a bottleneck)
+        for speaker_name in speaker_names:
+            embed_file = _get_speaker_embeddings_file(speaker_name)
+            # compare voice file with audio file
+            with (open(embed_file, "rb")) as openfile:
+                emb1 = pkl.load(openfile)
+            emb1 = emb1.to(embed_model.device)
+
+            emb2 = embed_model.encode_batch(clip)
+            score = similarity(emb1, emb2)  
+            score = score[0]
+            if score >= max_score and speaker_name not in exclude_speakers:
+                max_score = score
+                person = speaker_name
+
+        # TODO: use the duration to vote for the speaker (otherwise, tiny segments have the same weight as big ones)
+        #       JL: I suggest to use 'duration' instead of 1 here
+        id_count[person] += 1
         current_pred = max(id_count, key=id_count.get)
         duration += (end - start)
         
-        if duration >= limit and current_pred != "unknown":
+        # TODO: do we really want to continue forever for unknown speakers ?
+        if duration >= limit and current_pred != _UNKNOWN:
             break
     
     most_common_Id = max(id_count, key=id_count.get)
@@ -117,7 +179,36 @@ def speaker_recognition(audio, voices_folder, cand_speakers, segments, wildcards
     return most_common_Id
 
 
-def run_speaker_identification(audioFile, diarization, spk_names, log=None):
+def run_speaker_identification(audioFile, diarization, speakers_spec="*", log=None):
+
+    if speakers_spec and not is_speaker_identification_enabled():
+        raise RuntimeError("Speaker identification is disabled (no reference speakers)")
+
+    if not speakers_spec:
+        speaker_ids = []
+    elif isinstance(speakers_spec, list):
+        speaker_ids=[]
+        for item in speakers_spec:
+            if type(item)==int:
+                speaker_ids.append(item)
+            elif type(item)==dict:
+                start=item['start']
+                end=item['end']
+                for x in range(start,end+1):
+                    speaker_ids.append(x)
+            else:
+                raise ValueError(f"Unsupported reference speaker specification of type {type(item)} (in list)")
+    elif speakers_spec == "*":
+        speaker_ids = get_all_ids()
+    else:
+        raise ValueError(f"Unsupported reference speaker specification of type {type(speakers_spec)}")
+    
+    if log:
+        full_tic = time.time()
+        log.info(f"Running speaker identification with {len(speaker_ids)} reference speakers")
+
+    if not speaker_ids:
+        return diarization
     
     if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
         tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
@@ -126,116 +217,99 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
 
         with tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
             audioFile.save(ntf.name)
-            return run_speaker_identification(ntf.name, diarization, spk_names)
+            return run_speaker_identification(ntf.name, diarization, speaker_names)
         
-    audio, fs = torchaudio.load(audioFile)    
-    speakers=[]
-    if isinstance(spk_names, list):
-        for item in spk_names:
-            if type(item)==int:
-                speakers.append(item)
-            elif type(item)==dict:
-                start=item['start']
-                end=item['end']
-                for x in range(start,end+1):         
-                    speakers.append(x) 
-    elif spk_names == "*":
-        start=1
-        end=len(os.listdir("voices_ref/embeddings"))
-        for x in range(start,end+1):         
-            speakers.append(x)   
     
-    speakers_list=[]
-    conn=sqlite3.connect('voices_ref/speakers_database')
-    c = conn.cursor()    
-    for i in speakers:        
-        item=c.execute("SELECT Name FROM Speaker_names WHERE id = '%s'" % i)                  
-        speakers_list.append(item.fetchone()[0])   
+    # Conversion ids -> names
+    speaker_names=[]
+    conn=sqlite3.connect(_FILE_DATABASE)
+    c = conn.cursor()
+    for id in speaker_ids:
+        item=c.execute("SELECT Name FROM speaker_names WHERE id = '%s'" % id)
+        speaker_names.append(item.fetchone()[0])
 
     # Closing the connection 
     conn.close() 
-    spk_names=speakers_list
-    if spk_names is not None and len(spk_names) > 0:
 
-        voices_box = "voices_ref"        
-        speaker_tags = []
-        speakers = {}
-        common = []
-        speaker_map = {}
-        speaker_surnames = {}
+    speaker_tags = []
+    speakers = {}
+    common = []
+    speaker_map = {}
+    speaker_surnames = {}
 
-        for segment in diarization["segments"]:
+    for segment in diarization["segments"]:
 
-            start = segment["seg_begin"]
-            end = segment["seg_end"]
-            speaker = segment["spk_id"]
-            common.append([start, end, speaker])
+        start = segment["seg_begin"]
+        end = segment["seg_end"]
+        speaker = segment["spk_id"]
+        common.append([start, end, speaker])
 
-            # find different speakers
-            if speaker not in speaker_tags:
-                speaker_tags.append(speaker)
-                speaker_map[speaker] = speaker
-                speakers[speaker] = []
+        # find different speakers
+        if speaker not in speaker_tags:
+            speaker_tags.append(speaker)
+            speaker_map[speaker] = speaker
+            speakers[speaker] = []
 
-            speakers[speaker].append([start, end, speaker])
+        speakers[speaker].append([start, end])
 
-        if voices_box != None and voices_box != "":
-            identified = []
-            if log:
-                log.info("running speaker recognition...")
-            tic = time.time()
+    audio, sample_rate = torchaudio.load(audioFile)
+    # This should be OK, since this is enforced by the diarization API
+    assert sample_rate == 16_000, f"Unsupported sample rate {sample_rate} (only 16kHz is supported)"
 
-            for spk_tag, spk_segments in speakers.items():
-                spk_name = speaker_recognition(
-                    audio, voices_box, spk_names, spk_segments, identified
-                )                
-                identified.append(spk_name)
-                if spk_name != "unknown":
-                    speaker_map[spk_tag] = spk_name
-                else:
-                    speaker_map[spk_tag] = spk_tag
+    already_identified = []
+    for spk_tag, spk_segments in speakers.items():
+        tic = time.time()
+        spk_name = speaker_recognition(
+            audio, speaker_names, spk_segments,
+            # TODO : do we really want to avoid that 2 speakers are the same ?
+            #        and if we do, not that it's not invariant to the order in which segments are taken (so we should choose a somewhat optimal order)
+            exclude_speakers=already_identified,
+        )
+        if log:
+            log.info(
+                f"Speaker recognition {spk_tag} -> {spk_name} (done in {time.time() - tic:.3f} seconds)"
+            )
+        if spk_name != _UNKNOWN:
+            already_identified.append(spk_name)
+            speaker_map[spk_tag] = spk_name
+        else:
+            speaker_map[spk_tag] = spk_tag
 
-            if log:
-                log.info(
-                    f"Speaker recognition done in {time.time() - tic:.3f} seconds"
-                )
+    json = {}
+    _segments = []
+    _speakers = {}
+    speaker_surnames = {}
+    for iseg, segment in enumerate(diarization["segments"]):
+        start = segment["seg_begin"]
+        end = segment["seg_end"]
+        speaker = segment["spk_id"]
 
-        json = {}
-        _segments = []
-        _speakers = {}
-        speaker_surnames = {}
-        for iseg, segment in enumerate(diarization["segments"]):
-            start = segment["seg_begin"]
-            end = segment["seg_end"]
-            speaker = segment["spk_id"]
+        # Convert speaker names to spk1, spk2, etc.
+        if speaker not in speaker_surnames:
+            speaker_surnames[speaker] = (
+                speaker  # "spk"+str(len(speaker_surnames)+1)
+            )
+        speaker = speaker_surnames[speaker]
+        speaker_name = speaker_map[speaker]
+        if speaker_name == _UNKNOWN:
+            speaker_name = speaker
 
-            # Convert speaker names to spk1, spk2, etc.
-            if speaker not in speaker_surnames:
-                speaker_surnames[speaker] = (
-                    speaker  # "spk"+str(len(speaker_surnames)+1)
-                )
-            speaker = speaker_surnames[speaker]
-            speaker_name = speaker_map[speaker]
-            if speaker_name == "unknown":
-                speaker_name = speaker
+        segment["spk_id"] = speaker_name
 
-            segment["spk_id"] = speaker_name
+        _segments.append(segment)
 
-            _segments.append(segment)
+        if speaker_name not in _speakers:
+            _speakers[speaker_name] = {"spk_id": speaker_name}
+            _speakers[speaker_name]["duration"] = round(end - start, 3)
+            _speakers[speaker_name]["nbr_seg"] = 1
+        else:
+            _speakers[speaker_name]["duration"] += round(end - start, 3)
+            _speakers[speaker_name]["nbr_seg"] += 1
 
-            if speaker_name not in _speakers:
-                _speakers[speaker_name] = {"spk_id": speaker_name}
-                _speakers[speaker_name]["duration"] = round(end - start)
-                _speakers[speaker_name]["nbr_seg"] = 1
-            else:
-                _speakers[speaker_name]["duration"] += round(end - start)
-                _speakers[speaker_name]["nbr_seg"] += 1
+    json["speakers"] = list(_speakers.values())
+    json["segments"] = _segments
 
-        json["speakers"] = list(_speakers.values())
-        json["segments"] = _segments
+    if log:
+        log.info(f"Speaker identification done in {time.time() - full_tic:.3f} seconds")
 
-        return json
-
-def round(number):
-    # Return number with precision 0.001
-    return float("{:.3f}".format(number))
+    return json

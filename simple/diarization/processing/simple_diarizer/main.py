@@ -79,11 +79,12 @@ for item in names_speaker:
 
 import sqlite3
 
+# TODO: FIXME (or remove)
 conn = sqlite3.connect("speakers_database")
 c = conn.cursor()
 speakers_list = []
 for i in speakers:
-    item = c.execute("SELECT Name FROM Speaker_names WHERE id = '%s'" % i)
+    item = c.execute("SELECT Name FROM speaker_names WHERE id = '%s'" % i)
     speakers_list.append(item.fetchone()[0])
 # Closing the connection
 conn.close()
@@ -96,7 +97,7 @@ segments = diar.diarize(
     WAV_FILE,
     num_speakers=num_speakers,
     max_speakers=max_spk,
-    spk_names=speakers_list,
+    speaker_names=speakers_list,
     outfile=output_file,
 )
 

@@ -17,7 +17,7 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_recognition import run_speaker_identification, run_db_emb
+from identification.speaker_recognition import run_speaker_identification, initialize_speaker_identification
 
 class SpeakerDiarization:
     def __init__(
@@ -34,8 +34,6 @@ class SpeakerDiarization:
             num_threads (int): number of threads to use
             tolerated_silence (int): tolerated silence duration to merge same speaker segments (it was previously set to 3s)
         """
-        self.log = logging.getLogger("__speaker-identification-initialization")
-        run_db_emb("voices_ref")
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
         if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
             self.log.setLevel(logging.DEBUG)
@@ -68,6 +66,8 @@ class SpeakerDiarization:
         self.pipeline = self.pipeline.to(torch.device(device))
         self.num_threads = num_threads
         self.tempfile = None
+
+        initialize_speaker_identification(self.log)
 
 
     def run_pyannote(self, audioFile, number_speaker, max_speaker):
@@ -143,12 +143,12 @@ class SpeakerDiarization:
         file_path,
         number_speaker: int = None,
         max_speaker: int = None,
-        spk_names = None,
+        speaker_names = None,
     ):
         self.log.info(f"Starting diarization on file {file_path}")
 
         # If we run both speaker diarization and speaker identification, we need to save the file
-        if spk_names and isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
+        if speaker_names and isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
 
             if self.tempfile is None:
                 self.tempfile = memory_tempfile.MemoryTempfile(
@@ -158,14 +158,13 @@ class SpeakerDiarization:
 
             with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 file_path.save(ntf.name)
-                return self.run(ntf.name, number_speaker, max_speaker, spk_names=spk_names)
+                return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
 
         try:
             result = self.run_pyannote(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )
-            if spk_names:                
-                result = run_speaker_identification(file_path, result, spk_names=spk_names)
+            result = run_speaker_identification(file_path, result, speaker_names, log=self.log)
             return result
         except Exception as e:
             self.log.error(e)

@@ -19,13 +19,20 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_recognition import run_speaker_identification
+from identification.speaker_recognition import run_speaker_identification, initialize_speaker_identification
 
 
 class SpeakerDiarization:
     def __init__(self, device=None, device_vad=None, device_clustering=None, num_threads=None):
         self.log = logging.getLogger("__speaker-diarization__" + __name__)
-        self.log.info("Instanciating SpeakerDiarization")              
+        if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
+            self.log.setLevel(logging.DEBUG)
+            self.log.info("Debug logs enabled")
+        else:
+            self.log.setLevel(logging.INFO)
+
+        self.log.info("Instanciating SpeakerDiarization")
+
         if device is None:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = device
@@ -33,11 +40,6 @@ class SpeakerDiarization:
         self.device_clustering = device_clustering
         self.num_threads = num_threads
 
-        if os.environ.get("DEBUG", False) in ["1", 1, "true", "True"]:
-            self.log.setLevel(logging.DEBUG)
-            self.log.info("Debug logs enabled")
-        else:
-            self.log.setLevel(logging.INFO)
 
         self.log.info(f"Simple diarization version {simple_diarizer.__version__}")
         self.tolerated_silence = 3  # tolerated_silence=3s: silence duration tolerated to merge same speaker segments####
@@ -52,6 +54,8 @@ class SpeakerDiarization:
                )
 
         self.tempfile = None
+
+        initialize_speaker_identification(self.log)
 
     def run_simple_diarizer(self, file_path, number_speaker, max_speaker):
 
@@ -160,7 +164,7 @@ class SpeakerDiarization:
         file_path,
         number_speaker: int = None,
         max_speaker: int = None,
-        spk_names = None,
+        speaker_names = None,
     ):
 
         if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
@@ -172,7 +176,7 @@ class SpeakerDiarization:
 
             with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 file_path.save(ntf.name)
-                return self.run(ntf.name, number_speaker, max_speaker, spk_names=spk_names)
+                return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
 
         if number_speaker is None and max_speaker is None:
             raise Exception("Either number_speaker or max_speaker must be set")
@@ -182,8 +186,7 @@ class SpeakerDiarization:
             result = self.run_simple_diarizer(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )
-            if spk_names:
-                result = run_speaker_identification(file_path, result, spk_names=spk_names)
+            result = run_speaker_identification(file_path, result, speaker_names, log=self.log)
             return result
         except Exception as e:
             self.log.error(e)
