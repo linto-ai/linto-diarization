@@ -28,6 +28,7 @@ COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY simple/diarization /usr/src/app/diarization
 COPY simple/requirements.txt /usr/src/app/
 COPY simple/RELEASE.md ./
+COPY identification /usr/src/app/identification
 
 # Set path
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
