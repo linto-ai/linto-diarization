@@ -24,6 +24,7 @@ else
         # Check GPU utilization
         if nvidia-smi --query-compute-apps pid --format=csv,noheader | grep $PID; then
             # GPU is being utilized, assuming healthy
+            echo "Celery worker not responding in time but GPU is being utilized (trying to ping again)"
             continue
         fi
         echo "HealtchCheck FAIL : Celery worker not responding in time and GPU is not being utilized"
