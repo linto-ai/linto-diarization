@@ -60,9 +60,10 @@ def register(is_heartbeat: bool = False) -> bool:
 def unregister() -> None:
     """Un-register the service"""
     try:
+        password = os.environ.get("BROKER_PASS", None)
         host, port = os.environ.get("SERVICES_BROKER").split("//")[1].split(":")
         r = redis.Redis(
-            host=host, port=int(port), db=SERVICE_DISCOVERY_DB, password="password"
+            host=host, port=int(port), db=SERVICE_DISCOVERY_DB, password=password
         )
         r.json().delete(f"service:{host_name}")
     except Exception as error:
