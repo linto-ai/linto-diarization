@@ -20,7 +20,7 @@ else
 
     # Attempt a ping
     while [ 1 -gt 0 ];do
-    if ! celery --app=celery_app.celeryapp inspect ping -d ${SERVICE_NAME}_worker@$HOSTNAME --timeout=20; then
+    if ! celery --app=celery_app.celeryapp inspect ping -d diarization_worker@$HOSTNAME --timeout=20; then
         # Check GPU utilization
         if nvidia-smi --query-compute-apps pid --format=csv,noheader | grep $PID; then
             # GPU is being utilized, assuming healthy
