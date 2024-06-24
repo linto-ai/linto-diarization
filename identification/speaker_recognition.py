@@ -46,6 +46,7 @@ def run_db_emb (wav_ref_folder):
 
 #Calculte embeddings in voices_ref
 def speaker_ref_embedding(voice_ref,embedding_dir):
+    os.makedirs(embedding_dir, exist_ok=True)
     for root, dirs, files in os.walk(voice_ref):
         for file in files:
             if file.endswith(".wav"):
@@ -129,7 +130,7 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
         
     audio, fs = torchaudio.load(audioFile)    
     speakers=[]
-    if len(spk_names) > 1:
+    if isinstance(spk_names, list):
         for item in spk_names:
             if type(item)==int:
                 speakers.append(item)
@@ -138,12 +139,9 @@ def run_speaker_identification(audioFile, diarization, spk_names, log=None):
                 end=item['end']
                 for x in range(start,end+1):         
                     speakers.append(x) 
-    else:
-            
-        _, _, embeds = next(os.walk("voices_ref/embeddings")) 
-        print(embeds)           
+    elif spk_names == "*":
         start=1
-        end=len(embeds)
+        end=len(os.listdir("voices_ref/embeddings"))
         for x in range(start,end+1):         
             speakers.append(x)   
     

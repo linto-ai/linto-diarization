@@ -50,14 +50,9 @@ def transcribe():
             if max_spk_number is not None:
                 max_spk_number = int(max_spk_number)
             
-            speakers_name = request.form.get('speakers_name')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
-            print(speakers_name)
-            if speakers_name is not None:
-                speakers_name=json.loads(speakers_name)
-            print(speakers_name)
-            
-
-            
+            spk_names = request.form.get('speakers_name')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
+            if spk_names not in [None, "*"]:
+                spk_names=json.loads(spk_names)
             start_t = time()
         else:
             raise ValueError("No audio file was uploaded")
@@ -70,7 +65,7 @@ def transcribe():
     # Diarization
     try:        
         result = diarizationworker.run(
-            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number, spk_names=speakers_name
+            request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number, spk_names=spk_names
         )
     except Exception as e:
         import traceback
