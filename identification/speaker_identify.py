@@ -263,7 +263,7 @@ def speaker_identify(
 
     if log:
         log.info(
-            f"Speaker recognition {spk_tag} -> {argmax_speaker} (done in {time.time() - tic:.3f} seconds, on {audio_selection.shape[1] / sample_rate} seconds of audio out of {total_duration})"
+            f"Speaker recognition {spk_tag} -> {argmax_speaker} (done in {time.time() - tic:.3f} seconds, on {audio_selection.shape[1] / sample_rate:.3f} seconds of audio out of {total_duration:.3f})"
         )
 
     return argmax_speaker
