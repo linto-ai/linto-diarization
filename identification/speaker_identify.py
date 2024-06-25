@@ -186,7 +186,7 @@ def speaker_identify(
             emb1 = emb1.to(embed_model.device)
 
             emb2 = embed_model.encode_batch(clip)
-            score = similarity(emb1, emb2)  
+            score = similarity(emb1, emb2)
             score = score[0]
             if score >= max_score and speaker_name not in exclude_speakers:
                 max_score = score
@@ -320,7 +320,7 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
         else:
             speaker_map[spk_tag] = spk_tag
 
-    json = {}
+    result = {}
     _segments = []
     _speakers = {}
     speaker_surnames = {}
@@ -351,10 +351,10 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
             _speakers[speaker_name]["duration"] += round(end - start, 3)
             _speakers[speaker_name]["nbr_seg"] += 1
 
-    json["speakers"] = list(_speakers.values())
-    json["segments"] = _segments
+    result["speakers"] = list(_speakers.values())
+    result["segments"] = _segments
 
     if log:
         log.info(f"Speaker identification done in {time.time() - full_tic:.3f} seconds")
 
-    return json
+    return result
