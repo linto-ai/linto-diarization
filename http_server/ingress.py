@@ -8,7 +8,7 @@ from confparser import createParser
 from flask import Flask, Response, abort, json, request
 from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
-import sqlite3
+
 from diarization.processing import diarizationworker, USE_GPU
 
 app = Flask("__diarization-serving__")
@@ -46,7 +46,7 @@ def transcribe():
             spk_number = request.form.get("spk_number", None)
             if spk_number is not None:
                 spk_number = int(spk_number)
-            max_spk_number = request.form.get("max_speaker", None)            
+            max_spk_number = request.form.get("max_speaker", None)
             if max_spk_number is not None:
                 max_spk_number = int(max_spk_number)
             speaker_names = request.form.get('speaker_names')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
@@ -60,7 +60,7 @@ def transcribe():
         return "Server Error: {}".format(str(e)), 500
 
     # Diarization
-    try:        
+    try:
         result = diarizationworker.run(
             request.files["file"], number_speaker=spk_number, max_speaker=max_spk_number, speaker_names=speaker_names
         )
@@ -95,7 +95,7 @@ def server_error(error):
 if __name__ == "__main__":
     logger.info("Startup...")
 
-    parser = createParser()    
+    parser = createParser()
     args = parser.parse_args()
     logger.setLevel(logging.DEBUG if args.debug else logging.INFO)
     try:
