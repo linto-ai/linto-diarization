@@ -14,6 +14,7 @@ import werkzeug
 import pickle as pkl
 import sqlite3
 import glob
+import json
 from tqdm import tqdm
 
 # TODO : use an environment variable to set the device
@@ -26,8 +27,8 @@ else:
 embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb", run_opts={"device":device})
 
 # Constants (that could be env variables)
-_FOLDER_WAV = "voices_ref"
-_FOLDER_INTERNAL = f"{_FOLDER_WAV}/internal"
+_FOLDER_WAV = "/opt/speaker_samples"
+_FOLDER_INTERNAL = "/opt/speaker_precomputed"
 _FOLDER_EMBEDDINGS = f"{_FOLDER_INTERNAL}/embeddings"
 _FILE_DATABASE = f"{_FOLDER_INTERNAL}/speakers_database"
 
@@ -48,7 +49,7 @@ def initialize_db(log):
         if log: log.info(f"Speaker identification is disabled")
         return
     if log: log.info(f"Speaker identification is enabled")
-    os.makedirs(_FOLDER_INTERNAL, exist_ok=True)
+    os.makedirs(os.path.dirname(_FILE_DATABASE), exist_ok=True)
     # Create connection
     conn = sqlite3.connect(_FILE_DATABASE)
     cur = conn.cursor()
@@ -67,8 +68,19 @@ def get_all_ids():
     return ids
 
 
-# Pre-compute and store reference speaker embeddings
-def initialize_embeddings(log):
+def initialize_embeddings(
+    log = None,
+    max_duration = 60 * 3,
+    sample_rate = 16_000,
+    ):
+    """
+    Pre-compute and store reference speaker embeddings
+
+    Args:
+        log (logging.Logger): optional logger
+        max_duration (int): maximum duration (in seconds) of speech to use for speaker embeddings
+        sample_rate (int): sample rate (of the embedding model)
+    """
     if not is_speaker_identification_enabled():
         return
     os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
@@ -76,9 +88,23 @@ def initialize_embeddings(log):
     for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
         audio_files = _get_speaker_sample_files(speaker_name)
         assert len(audio_files) > 0, f"No audio files found for speaker {speaker_name}"
-        audio_file = audio_files[0]
-        # TODO: convert to 16kHz if needed ! (or fail if not 16kHz...)
-        audio, sample_rate = torchaudio.load(audio_file)
+        audio = None
+        max_samples = max_duration * sample_rate
+        for audio_file in audio_files:
+            # TODO: convert to 16kHz if needed ! (or fail if not 16kHz...)
+            clip_audio, clip_sample_rate = torchaudio.load(audio_file)
+            assert clip_sample_rate == sample_rate, f"Unsupported sample rate {clip_sample_rate} (only {sample_rate} is supported)"
+            if clip_audio.shape[1] > max_samples:
+                clip_audio = clip_audio[:, :max_samples]
+            if audio is None:
+                audio = clip_audio
+            else:
+                audio = torch.cat((audio, clip_audio), 1)
+            # Update maximum number of remaining samples
+            max_samples -= clip_audio.shape[1]
+            if max_samples <= 0:
+                break
+
         spk_embed = embed_model.encode_batch(audio)
         # Note: it is important to save the embeddings on the CPU (to be able to load them on the CPU later on)
         spk_embed = spk_embed.cpu()
@@ -91,18 +117,23 @@ def _get_speaker_embeddings_file(speaker_name):
     return os.path.join(_FOLDER_EMBEDDINGS, speaker_name + '.pkl')
 
 def _get_speaker_sample_files(speaker_name):
-    audio_files = glob.glob(os.path.join(_FOLDER_WAV, speaker_name + '.*'))
+    if os.path.isdir(os.path.join(_FOLDER_WAV, speaker_name)):
+        return sorted(glob.glob(os.path.join(_FOLDER_WAV, speaker_name, '*')))
+    prefix = os.path.join(_FOLDER_WAV, speaker_name)
+    audio_files = glob.glob(prefix + '.*')
+    audio_files = [file for file in audio_files if os.path.splitext(file)[0] == prefix]
+    assert len(audio_files) == 1
     return audio_files
 
 def _get_speakers():
     assert os.path.isdir(_FOLDER_WAV)
-    for file in sorted(os.listdir(_FOLDER_WAV)):
-        audio_file = os.path.join(_FOLDER_WAV, file)
-        if not os.path.isfile(audio_file):
-            continue
-        speaker_name = os.path.splitext(file)[0]
-        yield speaker_name
-
+    for root, dirs, files in os.walk(_FOLDER_WAV):
+        for file in files:
+            if root == _FOLDER_WAV:
+                speaker_name = os.path.splitext(file)[0]
+            else:
+                speaker_name = os.path.basename(root.rstrip("/"))
+            yield speaker_name
 
 def speaker_identify(
     audio,
