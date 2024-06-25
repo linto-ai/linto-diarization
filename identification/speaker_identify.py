@@ -209,43 +209,43 @@ def speaker_identify(
     limit = limit_duration * sample_rate
     duration = 0
     
-    for start, end in segments:
-        start = int(start * sample_rate)
-        end = int(end * sample_rate)
-        clip = audio[:, start:end]
-        # ECAPA-TDNN embedding are only extracted for speech of duration > 0.15s
-        # TODO: make this more explicit, and stress tests on the limit
-        if (end-start) < 600:
-            clip=torch.cat((clip, clip, clip, clip), 1)
-          
-        max_score = min_similarity
-        person = _UNKNOWN # if no match to any voice, then return unknown
-
-        # TODO: we probably want to "transpose the for loops" to avoid loading the embeddings at each iteration
-        #       (if segments are all super short, this could be a bottleneck)
-        for speaker_name in speaker_names:
-            embed_file = _get_speaker_embedding_file(speaker_name)
-            # compare voice file with audio file
-            with (open(embed_file, "rb")) as openfile:
-                emb1 = pkl.load(openfile)
-            emb1 = emb1.to(embed_model.device)
-
-            emb2 = embed_model.encode_batch(clip)
-            score = similarity(emb1, emb2)
-            score = score.item()
-            if score >= max_score and speaker_name not in exclude_speakers:
-                max_score = score
-                person = speaker_name
-
-        # TODO: use the duration to vote for the speaker (otherwise, tiny segments have the same weight as big ones)
-        #       JL: I suggest to use 'duration' instead of 1 here
-        id_count[person] += 1
-        current_pred = max(id_count, key=id_count.get)
-        duration += (end - start)
+    
+    start = int(segments[0] * sample_rate)
+    end = int(segments[1] * sample_rate)
+    clip = audio[:, start:end]
+    # ECAPA-TDNN embedding are only extracted for speech of duration > 0.15s
+    # TODO: make this more explicit, and stress tests on the limit
+    if (end-start) < 600:
+        clip=torch.cat((clip, clip, clip, clip), 1)
         
-        # TODO: do we really want to continue forever for unknown speakers ?
-        if duration >= limit and current_pred != _UNKNOWN:
-            break
+    max_score = min_similarity
+    person = _UNKNOWN # if no match to any voice, then return unknown
+
+    # TODO: we probably want to "transpose the for loops" to avoid loading the embeddings at each iteration
+    #       (if segments are all super short, this could be a bottleneck)
+    for speaker_name in speaker_names:
+        embed_file = _get_speaker_embedding_file(speaker_name)
+        # compare voice file with audio file
+        with (open(embed_file, "rb")) as openfile:
+            emb1 = pkl.load(openfile)
+        emb1 = emb1.to(embed_model.device)
+
+        emb2 = embed_model.encode_batch(clip)
+        score = similarity(emb1, emb2)
+        score = score.item()
+        if score >= max_score and speaker_name not in exclude_speakers:
+            max_score = score
+            person = speaker_name
+
+    # TODO: use the duration to vote for the speaker (otherwise, tiny segments have the same weight as big ones)
+    #       JL: I suggest to use 'duration' instead of 1 here
+    id_count[person] += 1
+    current_pred = max(id_count, key=id_count.get)
+    duration += (end - start)
+    
+    # TODO: do we really want to continue forever for unknown speakers ?
+    #if duration >= limit and current_pred != _UNKNOWN:
+    #    break
     
     most_common_Id = max(id_count, key=id_count.get)
     
@@ -361,13 +361,13 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
             speakers[speaker] = []
 
         speakers[speaker].append([start, end])
-
+    max_sorted_speakers = {k: max(v, key=lambda x: x[1] - x[0]) for k, v in speakers.items()}  
     audio, sample_rate = torchaudio.load(audioFile)
     # This should be OK, since this is enforced by the diarization API
     assert sample_rate == 16_000, f"Unsupported sample rate {sample_rate} (only 16kHz is supported)"
 
     already_identified = []
-    for spk_tag, spk_segments in speakers.items():
+    for spk_tag, spk_segments in max_sorted_speakers.items():
         tic = time.time()
         spk_name = speaker_identify(
             audio, speaker_names, spk_segments,
