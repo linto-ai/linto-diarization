@@ -200,6 +200,7 @@ def speaker_identify(
         segments (list): list of segments to analyze (tuples of start and end times in seconds)
         exclude_speakers (list): list of speaker names to exclude
         min_similarity (float): minimum similarity to consider a speaker match
+            The default value 0.25 was taken from https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/inference/speaker.py#L61
         sample_rate (int): audio sample rate
         limit_duration (int): maximum duration (in seconds) of speech to identify a speaker (the first seconds of speech will be used, the other will be ignored)
         log: logger
