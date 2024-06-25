@@ -52,20 +52,23 @@ def initialize_db(log):
     os.makedirs(os.path.dirname(_FILE_DATABASE), exist_ok=True)
     # Create connection
     conn = sqlite3.connect(_FILE_DATABASE)
-    cur = conn.cursor()
+    cursor = conn.cursor()
     # Creating and inserting into table
-    cur.execute("""CREATE TABLE IF NOT EXISTS speaker_names (id integer UNIQUE, Name TEXT UNIQUE)""")
-    for id, speaker_name in enumerate(_get_speakers()):
-        cur.execute("INSERT OR IGNORE INTO speaker_names (id, Name) VALUES (?, ?)", (id+1,speaker_name))
+    cursor.execute("""CREATE TABLE IF NOT EXISTS speaker_names (id integer UNIQUE, name TEXT UNIQUE)""")
+    all_ids = list(_get_db_speaker_ids(cursor))
+    all_names = _get_db_speaker_names(cursor)
+    assert all_ids == list(range(1, len(all_ids)+1)), f"Speaker ids are not continuous"
+    assert len(all_names) == len(all_ids), f"Speaker names are not unique"
+    new_id = len(all_ids) + 1
+    for speaker_name in _get_speaker_names():
+        if speaker_name not in all_names:
+            cursor.execute("INSERT OR IGNORE INTO speaker_names (id, name) VALUES (?, ?)", (
+                new_id,
+                speaker_name,
+            ))
+            new_id += 1
     conn.commit()
-
-def get_all_ids():
-    conn=sqlite3.connect(_FILE_DATABASE)
-    c = conn.cursor()
-    c.execute("SELECT id FROM speaker_names")
-    ids = c.fetchall()
     conn.close()
-    return ids
 
 
 def initialize_embeddings(
@@ -84,7 +87,7 @@ def initialize_embeddings(
     if not is_speaker_identification_enabled():
         return
     os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
-    speakers = list(_get_speakers())
+    speakers = list(_get_speaker_names())
     for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
         audio_files = _get_speaker_sample_files(speaker_name)
         assert len(audio_files) > 0, f"No audio files found for speaker {speaker_name}"
@@ -108,12 +111,55 @@ def initialize_embeddings(
         spk_embed = embed_model.encode_batch(audio)
         # Note: it is important to save the embeddings on the CPU (to be able to load them on the CPU later on)
         spk_embed = spk_embed.cpu()
-        embeddings_file = _get_speaker_embeddings_file(speaker_name)
+        embeddings_file = _get_speaker_embedding_file(speaker_name)
         pkl.dump(spk_embed, open(embeddings_file, 'wb'))
     if log: log.info(f"Speaker identification initialized with {len(speakers)} speakers")
     
 
-def _get_speaker_embeddings_file(speaker_name):
+def _get_db_speaker_ids(cursor=None):
+    return _get_db_possible_values("id", cursor)
+
+def _get_db_speaker_names(cursor=None):
+    return _get_db_possible_values("name", cursor)
+
+def _get_db_possible_values(name, cursor, check_unique=True):
+    create_connection = (cursor is None)
+    if create_connection:
+        conn = sqlite3.connect(_FILE_DATABASE)
+        cursor = conn.cursor()
+    cursor.execute(f"SELECT {name} FROM speaker_names")
+    values = cursor.fetchall()
+    values = [value[0] for value in values]
+    if check_unique:
+        assert len(values) == len(set(values)), f"Values are not unique"
+    else:
+        values = list(set(values))
+    if create_connection:
+        conn.close()
+    return values
+
+def _get_db_speaker_name(speaker_id, cursor=None):
+    return _get_db_speaker_attribute(speaker_id, "id", "name", cursor)
+
+def _get_db_speaker_id(speaker_name, cursor=None):
+    return _get_db_speaker_attribute(speaker_name, "name", "id", cursor)
+
+def _get_db_speaker_attribute(value, orig, dest, cursor):
+    create_connection = (cursor is None)
+    if create_connection:
+        conn = sqlite3.connect(_FILE_DATABASE)
+        cursor = conn.cursor()
+    item = cursor.execute(f"SELECT {dest} FROM speaker_names WHERE {orig} = '{value}'")
+    item = item.fetchone()
+    assert item, f"Speaker {orig} {value} not found"
+    assert len(item) == 1, f"Speaker {orig} {value} not unique"
+    value = item[0]
+    if create_connection:
+        conn.close()
+    return value
+
+
+def _get_speaker_embedding_file(speaker_name):
     return os.path.join(_FOLDER_EMBEDDINGS, speaker_name + '.pkl')
 
 def _get_speaker_sample_files(speaker_name):
@@ -125,15 +171,14 @@ def _get_speaker_sample_files(speaker_name):
     assert len(audio_files) == 1
     return audio_files
 
-def _get_speakers():
+def _get_speaker_names():
     assert os.path.isdir(_FOLDER_WAV)
     for root, dirs, files in os.walk(_FOLDER_WAV):
-        for file in files:
-            if root == _FOLDER_WAV:
-                speaker_name = os.path.splitext(file)[0]
-            else:
-                speaker_name = os.path.basename(root.rstrip("/"))
-            yield speaker_name
+        if root == _FOLDER_WAV:
+            for file in files:
+                yield os.path.splitext(file)[0]
+        else:
+            yield os.path.basename(root.rstrip("/"))
 
 def speaker_identify(
     audio,
@@ -179,7 +224,7 @@ def speaker_identify(
         # TODO: we probably want to "transpose the for loops" to avoid loading the embeddings at each iteration
         #       (if segments are all super short, this could be a bottleneck)
         for speaker_name in speaker_names:
-            embed_file = _get_speaker_embeddings_file(speaker_name)
+            embed_file = _get_speaker_embedding_file(speaker_name)
             # compare voice file with audio file
             with (open(embed_file, "rb")) as openfile:
                 emb1 = pkl.load(openfile)
@@ -206,6 +251,65 @@ def speaker_identify(
     
     return most_common_Id
 
+def check_speaker_specification(speakers_spec, cursor=None):
+    """
+    Check and convert speaker specification to list of speaker names
+
+    Args:
+        speakers_spec (str, list): speaker specification
+        cursor (sqlite3.Cursor): optional database cursor
+    """
+
+    if speakers_spec and not is_speaker_identification_enabled():
+        raise RuntimeError("Speaker identification is disabled (no reference speakers)")
+
+    # Read list / dictionary
+    if isinstance(speakers_spec, str) and speakers_spec != "*":
+        try:
+            speakers_spec = json.loads(speakers_spec)
+        except Exception as err:
+            raise ValueError(f"Unsupported reference speaker specification: {speakers_spec}") from err
+        if isinstance(speakers_spec, dict):
+            speakers_spec = [speakers_spec]
+
+    # Convert to list of speaker names
+    if not speakers_spec:
+        return []
+
+    elif isinstance(speakers_spec, list):
+        all_speaker_names = None
+        speaker_names = []
+        for item in speakers_spec:
+            if isinstance(item, int):
+                items = [_get_db_speaker_name(item, cursor)]
+            
+            elif isinstance(item, dict):
+                start = item['start']
+                end = item['end']
+                for id in range(start,end+1):
+                    items.append(_get_db_speaker_id(id))
+            
+            elif isinstance(item, str):
+                if all_speaker_names is None:
+                    all_speaker_names = _get_db_speaker_names(cursor)
+                if item not in all_speaker_names:
+                    raise ValueError(f"Unknown speaker name '{item}'")
+                items = [item]
+            
+            else:
+                raise ValueError(f"Unsupported reference speaker specification of type {type(item)} (in list): {speakers_spec}")
+            
+            for item in items:
+                if item not in speaker_names:
+                    speaker_names.append(item)
+
+        return speaker_names
+
+    elif speakers_spec == "*":
+        return list(_get_db_speaker_names())
+
+    raise ValueError(f"Unsupported reference speaker specification of type {type(speakers_spec)}: {speakers_spec}")
+    
 
 def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*", log=None, options={}):
     """
@@ -219,40 +323,14 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
         options (dict): optional options (e.g. {"min_similarity": 0.25, "limit_duration": 60})
     """
 
-    if speakers_spec and not is_speaker_identification_enabled():
-        raise RuntimeError("Speaker identification is disabled (no reference speakers)")
+    speaker_names = check_speaker_specification(speakers_spec)
 
-    if isinstance(speakers_spec, str) and speakers_spec != "*":
-        try:
-            speakers_spec = json.loads(speakers_spec)
-        except Exception as err:
-            raise ValueError(f"Unsupported reference speaker specification: {speakers_spec}") from err
+    if not speaker_names:
+        return diarization
 
-    if not speakers_spec:
-        speaker_ids = []
-    elif isinstance(speakers_spec, list):
-        speaker_ids=[]
-        for item in speakers_spec:
-            if type(item)==int:
-                speaker_ids.append(item)
-            elif type(item)==dict:
-                start=item['start']
-                end=item['end']
-                for x in range(start,end+1):
-                    speaker_ids.append(x)
-            else:
-                raise ValueError(f"Unsupported reference speaker specification of type {type(item)} (in list)")
-    elif speakers_spec == "*":
-        speaker_ids = get_all_ids()
-    else:
-        raise ValueError(f"Unsupported reference speaker specification of type {type(speakers_spec)}")
-    
     if log:
         full_tic = time.time()
-        log.info(f"Running speaker identification with {len(speaker_ids)} reference speakers")
-
-    if not speaker_ids:
-        return diarization
+        log.info(f"Running speaker identification with {len(speaker_names)} reference speakers")
     
     if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
         tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
@@ -262,18 +340,6 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
         with tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
             audioFile.save(ntf.name)
             return speaker_identify_given_diarization(ntf.name, diarization, speaker_names)
-        
-    
-    # Conversion ids -> names
-    speaker_names=[]
-    conn=sqlite3.connect(_FILE_DATABASE)
-    c = conn.cursor()
-    for id in speaker_ids:
-        item=c.execute("SELECT Name FROM speaker_names WHERE id = '%s'" % id)
-        speaker_names.append(item.fetchone()[0])
-
-    # Closing the connection 
-    conn.close() 
 
     speaker_tags = []
     speakers = {}

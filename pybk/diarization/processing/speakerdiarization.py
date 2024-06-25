@@ -19,7 +19,11 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_identify import speaker_identify_given_diarization, initialize_speaker_identification
+from identification.speaker_identify import (
+    initialize_speaker_identification,
+    check_speaker_specification,
+    speaker_identify_given_diarization,
+)
 
 class SpeakerDiarization:
     def __init__(self):
@@ -275,7 +279,12 @@ class SpeakerDiarization:
         return json
 
     def run(self, audioFile, number_speaker: int = None, max_speaker: int = None, speaker_names = None):
-        self.log.debug(f"Starting diarization on file {audioFile}")
+
+        # Early check on speaker names
+        speaker_names = check_speaker_specification(speaker_names)
+
+        self.log.info(f"Starting diarization on file {audioFile}")
+
         if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
             if self.tempfile is None:
                 self.tempfile = memory_tempfile.MemoryTempfile(

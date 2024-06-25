@@ -19,7 +19,11 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_identify import speaker_identify_given_diarization, initialize_speaker_identification
+from identification.speaker_identify import (
+    initialize_speaker_identification,
+    check_speaker_specification,
+    speaker_identify_given_diarization,
+)
 
 
 class SpeakerDiarization:
@@ -166,6 +170,8 @@ class SpeakerDiarization:
         max_speaker: int = None,
         speaker_names = None,
     ):
+        # Early check on speaker names
+        speaker_names = check_speaker_specification(speaker_names)
 
         if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
             if self.tempfile is None:
@@ -178,10 +184,11 @@ class SpeakerDiarization:
                 file_path.save(ntf.name)
                 return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
 
+        self.log.info(f"Starting diarization on file {file_path}")
+
         if number_speaker is None and max_speaker is None:
             raise Exception("Either number_speaker or max_speaker must be set")
 
-        self.log.debug(f"Starting diarization on file {file_path}")
         try:                       
             result = self.run_simple_diarizer(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker

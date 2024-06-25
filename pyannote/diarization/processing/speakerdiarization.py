@@ -17,7 +17,11 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_identify import speaker_identify_given_diarization, initialize_speaker_identification
+from identification.speaker_identify import (
+    initialize_speaker_identification,
+    check_speaker_specification,
+    speaker_identify_given_diarization,
+)
 
 class SpeakerDiarization:
     def __init__(
@@ -145,7 +149,8 @@ class SpeakerDiarization:
         max_speaker: int = None,
         speaker_names = None,
     ):
-        self.log.info(f"Starting diarization on file {file_path}")
+        # Early check on speaker names
+        speaker_names = check_speaker_specification(speaker_names)
 
         # If we run both speaker diarization and speaker identification, we need to save the file
         if speaker_names and isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
@@ -159,6 +164,8 @@ class SpeakerDiarization:
             with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 file_path.save(ntf.name)
                 return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
+
+        self.log.info(f"Starting diarization on file {file_path}")
 
         try:
             result = self.run_pyannote(
