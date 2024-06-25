@@ -96,7 +96,7 @@ def _get_speaker_sample_files(speaker_name):
 
 def _get_speakers():
     assert os.path.isdir(_FOLDER_WAV)
-    for file in os.listdir(_FOLDER_WAV):
+    for file in sorted(os.listdir(_FOLDER_WAV)):
         audio_file = os.path.join(_FOLDER_WAV, file)
         if not os.path.isfile(audio_file):
             continue
