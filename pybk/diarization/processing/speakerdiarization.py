@@ -19,7 +19,7 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_recognition import run_speaker_identification
+from identification.speaker_identify import speaker_identify_given_diarization, initialize_speaker_identification
 
 class SpeakerDiarization:
     def __init__(self):
@@ -90,6 +90,8 @@ class SpeakerDiarization:
         self.min_duration = 0.3
 
         self.tempfile = None
+
+        initialize_speaker_identification(self.log)
 
     def compute_feat_Librosa(self, file_path):
         try:
@@ -428,8 +430,7 @@ class SpeakerDiarization:
                     float(int(time.time() - start_time) / duration),
                 )
             )
-            if speaker_names:
-                result = run_speaker_identification(audioFile, result, speaker_names=speaker_names)
+            result = speaker_identify_given_diarization(audioFile, result, speaker_names, log=self.log)
             return result
         except ValueError as v:
             self.log.error(v)

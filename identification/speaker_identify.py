@@ -104,10 +104,7 @@ def _get_speakers():
         yield speaker_name
 
 
-
-
-# recognize speaker name
-def speaker_recognition(
+def speaker_identify(
     audio,
     speaker_names,
     segments,
@@ -117,7 +114,7 @@ def speaker_recognition(
     limit_duration=60,
     ):
     """
-    Recognize speaker name from segments of an audio file
+    Run speaker identification on given segments of an audio
 
     Args:
         audio (torch.Tensor): audio waveform
@@ -179,10 +176,26 @@ def speaker_recognition(
     return most_common_Id
 
 
-def run_speaker_identification(audioFile, diarization, speakers_spec="*", log=None):
+def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*", log=None, options={}):
+    """
+    Run speaker identification on given diarized audio file
+
+    Args:
+        audioFile (str): path to audio file
+        diarization (dict): diarization result
+        speakers_spec (list): list of reference speaker ids or ranges (e.g. [1, 2, {"start": 3, "end": 5}])
+        log (logging.Logger): optional logger
+        options (dict): optional options (e.g. {"min_similarity": 0.25, "limit_duration": 60})
+    """
 
     if speakers_spec and not is_speaker_identification_enabled():
         raise RuntimeError("Speaker identification is disabled (no reference speakers)")
+
+    if isinstance(speakers_spec, str) and speakers_spec != "*":
+        try:
+            speakers_spec = json.loads(speakers_spec)
+        except Exception as err:
+            raise ValueError(f"Unsupported reference speaker specification: {speakers_spec}") from err
 
     if not speakers_spec:
         speaker_ids = []
@@ -217,7 +230,7 @@ def run_speaker_identification(audioFile, diarization, speakers_spec="*", log=No
 
         with tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
             audioFile.save(ntf.name)
-            return run_speaker_identification(ntf.name, diarization, speaker_names)
+            return speaker_identify_given_diarization(ntf.name, diarization, speaker_names)
         
     
     # Conversion ids -> names
@@ -259,11 +272,12 @@ def run_speaker_identification(audioFile, diarization, speakers_spec="*", log=No
     already_identified = []
     for spk_tag, spk_segments in speakers.items():
         tic = time.time()
-        spk_name = speaker_recognition(
+        spk_name = speaker_identify(
             audio, speaker_names, spk_segments,
             # TODO : do we really want to avoid that 2 speakers are the same ?
             #        and if we do, not that it's not invariant to the order in which segments are taken (so we should choose a somewhat optimal order)
             exclude_speakers=already_identified,
+            **options
         )
         if log:
             log.info(

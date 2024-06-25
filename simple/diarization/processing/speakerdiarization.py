@@ -19,7 +19,7 @@ sys.path.append(
     )
 )
 import identification
-from identification.speaker_recognition import run_speaker_identification, initialize_speaker_identification
+from identification.speaker_identify import speaker_identify_given_diarization, initialize_speaker_identification
 
 
 class SpeakerDiarization:
@@ -186,7 +186,7 @@ class SpeakerDiarization:
             result = self.run_simple_diarizer(
                 file_path, number_speaker=number_speaker, max_speaker=max_speaker
             )
-            result = run_speaker_identification(file_path, result, speaker_names, log=self.log)
+            result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log)
             return result
         except Exception as e:
             self.log.error(e)

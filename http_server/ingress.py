@@ -49,10 +49,7 @@ def transcribe():
             max_spk_number = request.form.get("max_speaker", None)            
             if max_spk_number is not None:
                 max_spk_number = int(max_spk_number)
-            
             speaker_names = request.form.get('speaker_names')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
-            if speaker_names not in [None, "*"]:
-                speaker_names=json.loads(speaker_names)
             start_t = time()
         else:
             raise ValueError("No audio file was uploaded")
