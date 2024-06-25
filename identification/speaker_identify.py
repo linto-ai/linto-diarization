@@ -187,7 +187,7 @@ def speaker_identify(
 
             emb2 = embed_model.encode_batch(clip)
             score = similarity(emb1, emb2)
-            score = score[0]
+            score = score.item()
             if score >= max_score and speaker_name not in exclude_speakers:
                 max_score = score
                 person = speaker_name
