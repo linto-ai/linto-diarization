@@ -292,8 +292,7 @@ def speaker_identify(
         score = similarity(embedding_speaker, embedding_audio)
         score = score.item()
         if score >= min_similarity:
-            duration = (end - start)
-            votes[speaker_name] += score * duration
+            votes[speaker_name] += score
 
     if not votes:
         argmax_speaker = _UNKNOWN
