@@ -8,7 +8,7 @@ from collections import defaultdict
 import torch
 import torchaudio
 import time
-
+import subprocess
 import memory_tempfile
 import werkzeug
 import pickle as pkl
@@ -70,6 +70,32 @@ def initialize_db(log):
     conn.commit()
     conn.close()
 
+def check_wav_16khz_mono(wavfile):
+    """
+    Returns True if a wav file is 16khz and single channel
+    """
+    try:
+        signal, fs = torchaudio.load(wavfile)
+
+        mono = signal.shape[0] == 1
+        freq = fs == 16000
+        if mono and freq:
+            return True
+        else:
+            return False
+    except:
+        return False
+
+
+def convert_wavfile(wavfile, outfile):
+    """
+    Converts file to 16khz single channel mono wav
+    """
+    cmd = "ffmpeg -y -i {} -acodec pcm_s16le -ar 16000 -ac 1 {}".format(
+        wavfile, outfile
+    )
+    subprocess.Popen(cmd, shell=True).wait()
+    return outfile
 
 def initialize_embeddings(
     log = None,
@@ -94,8 +120,20 @@ def initialize_embeddings(
         audio = None
         max_samples = max_duration * sample_rate
         for audio_file in audio_files:
-            # TODO: convert to 16kHz if needed ! (or fail if not 16kHz...)
-            clip_audio, clip_sample_rate = torchaudio.load(audio_file)
+            if check_wav_16khz_mono(audio_file):
+                clip_audio, clip_sample_rate = torchaudio.load(audio_file)
+            else:
+                log.info("Converting audio file to single channel WAV using ffmpeg...")
+                converted_wavfile = os.path.join(
+                    os.path.dirname(audio_file), "{}.wav".format(os.path.splitext(os.path.basename(audio_file))[0])
+                )
+                convert_wavfile(audio_file, converted_wavfile)
+                assert os.path.isfile(
+                    converted_wavfile
+                ), "Couldn't find converted wav file, failed for some reason"
+                clip_audio, clip_sample_rate = torchaudio.load(converted_wavfile)
+                os.remove(audio_file)
+
             assert clip_sample_rate == sample_rate, f"Unsupported sample rate {clip_sample_rate} (only {sample_rate} is supported)"
             if clip_audio.shape[1] > max_samples:
                 clip_audio = clip_audio[:, :max_samples]
