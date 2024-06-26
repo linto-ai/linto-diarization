@@ -4,6 +4,7 @@ LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.
 RUN apt-get update &&\
     apt-get install -y \
     curl \
+    ffmpeg \
     wget \
     unzip \
     libsndfile1 \
