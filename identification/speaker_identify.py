@@ -1,8 +1,8 @@
 import speechbrain
 if speechbrain.__version__ >= "1.0.0":
-   from speechbrain.inference.speaker import SpeakerRecognition, EncoderClassifier
+   from speechbrain.inference.speaker import EncoderClassifier
 else:
-   from speechbrain.pretrained import SpeakerRecognition, EncoderClassifier
+   from speechbrain.pretrained import EncoderClassifier
 import os
 from collections import defaultdict
 import torch
@@ -17,14 +17,14 @@ import glob
 import json
 from tqdm import tqdm
 
-# TODO : use an environment variable to set the device
-if torch.cuda.is_available():
-    device="cuda"
-else:
-    device="cpu"
+device = os.environ.get("DEVICE_IDENTIFICATION", os.environ.get("DEVICE", None))
+if device is None:
+    if torch.cuda.is_available():
+        device="cuda"
+    else:
+        device="cpu"
 
-# verification = SpeakerRecognition.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb", run_opts={"device":device})
-embed_model = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb", savedir="pretrained_models/spkrec-ecapa-voxceleb", run_opts={"device":device})
+_embedding_model = None
 
 # Constants (that could be env variables)
 _FOLDER_WAV = "/opt/speaker_samples"
@@ -112,6 +112,17 @@ def initialize_embeddings(
     """
     if not is_speaker_identification_enabled():
         return
+    
+    global _embedding_model
+    if _embedding_model is None:
+        tic = time.time()
+        _embedding_model = EncoderClassifier.from_hparams(
+            source="speechbrain/spkrec-ecapa-voxceleb",
+            # savedir="pretrained_models/spkrec-ecapa-voxceleb",
+            run_opts={"device":device}
+        )
+        if log: log.info(f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {device}")
+
     os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
     speakers = list(_get_speaker_names())
     for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
@@ -123,16 +134,18 @@ def initialize_embeddings(
             if check_wav_16khz_mono(audio_file):
                 clip_audio, clip_sample_rate = torchaudio.load(audio_file)
             else:
-                log.info("Converting audio file to single channel WAV using ffmpeg...")
+                log.info(f"Converting audio file {audio_file} to single channel 16kHz WAV using ffmpeg...")
                 converted_wavfile = os.path.join(
-                    os.path.dirname(audio_file), "{}.wav".format(os.path.splitext(os.path.basename(audio_file))[0])
+                    os.path.dirname(audio_file), "___{}.wav".format(os.path.splitext(os.path.basename(audio_file))[0])
                 )
                 convert_wavfile(audio_file, converted_wavfile)
                 assert os.path.isfile(
                     converted_wavfile
                 ), "Couldn't find converted wav file, failed for some reason"
-                clip_audio, clip_sample_rate = torchaudio.load(converted_wavfile)
-                os.remove(audio_file)
+                try:
+                    clip_audio, clip_sample_rate = torchaudio.load(converted_wavfile)
+                finally:
+                    os.remove(converted_wavfile)
 
             assert clip_sample_rate == sample_rate, f"Unsupported sample rate {clip_sample_rate} (only {sample_rate} is supported)"
             if clip_audio.shape[1] > max_samples:
@@ -146,13 +159,25 @@ def initialize_embeddings(
             if max_samples <= 0:
                 break
 
-        spk_embed = embed_model.encode_batch(audio)
+        spk_embed = compute_embedding(audio)
         # Note: it is important to save the embeddings on the CPU (to be able to load them on the CPU later on)
         spk_embed = spk_embed.cpu()
-        embeddings_file = _get_speaker_embedding_file(speaker_name)
-        pkl.dump(spk_embed, open(embeddings_file, 'wb'))
+        with open(_get_speaker_embedding_file(speaker_name), "wb") as f:
+            pkl.dump(spk_embed, f)
     if log: log.info(f"Speaker identification initialized with {len(speakers)} speakers")
-    
+
+def compute_embedding(audio, min_len = 640):
+    """
+    Compute speaker embedding from audio
+
+    Args:
+        audio (torch.Tensor): audio waveform
+    """
+    assert _embedding_model is not None, "Speaker identification model not initialized"
+    # The following is to avoid a failure on too short audio (less than 640 samples = 40ms at 16kHz)
+    if audio.shape[-1] < min_len:
+        audio = torch.cat([audio, torch.zeros(audio.shape[0], min_len - audio.shape[-1])], dim=-1)
+    return _embedding_model.encode_batch(audio)
 
 def _get_db_speaker_ids(cursor=None):
     return _get_db_possible_values("id", cursor)
@@ -275,7 +300,7 @@ def speaker_identify(
         if limit_samples <= 0:
             break
 
-    embedding_audio = embed_model.encode_batch(audio_selection)
+    embedding_audio = compute_embedding(audio_selection)
 
     # Loop on the target speakers
     for speaker_name in speaker_names:
@@ -283,10 +308,9 @@ def speaker_identify(
             continue
 
         # Get speaker embedding
-        embed_file = _get_speaker_embedding_file(speaker_name)
-        with open(embed_file, "rb") as openfile:
-            embedding_speaker = pkl.load(openfile)
-        embedding_speaker = embedding_speaker.to(embed_model.device)
+        with open(_get_speaker_embedding_file(speaker_name), "rb") as f:
+            embedding_speaker = pkl.load(f)
+        embedding_speaker = embedding_speaker.to(_embedding_model.device)
 
         # Compute score similarity
         score = similarity(embedding_speaker, embedding_audio)
