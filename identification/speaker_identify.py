@@ -12,6 +12,7 @@ import subprocess
 import memory_tempfile
 import werkzeug
 import pickle as pkl
+import hashlib
 import sqlite3
 import glob
 import json
@@ -94,7 +95,9 @@ def convert_wavfile(wavfile, outfile):
     cmd = "ffmpeg -y -i {} -acodec pcm_s16le -ar 16000 -ac 1 {}".format(
         wavfile, outfile
     )
-    subprocess.Popen(cmd, shell=True).wait()
+    subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE).wait()
+    if not os.path.isfile(outfile):
+        raise RuntimeError(f"Failed to run conversion: {cmd}")
     return outfile
 
 def initialize_embeddings(
@@ -131,6 +134,7 @@ def initialize_embeddings(
             try:
                 with open(embedding_file, "rb") as f:
                     pkl.load(f)
+                if log: log.info(f"Speaker {speaker_name} embedding already computed")
                 continue
             except Exception as e:
                 os.remove(embedding_file)
@@ -147,9 +151,6 @@ def initialize_embeddings(
                     os.path.dirname(audio_file), "___{}.wav".format(os.path.splitext(os.path.basename(audio_file))[0])
                 )
                 convert_wavfile(audio_file, converted_wavfile)
-                assert os.path.isfile(
-                    converted_wavfile
-                ), "Couldn't find converted wav file, failed for some reason"
                 try:
                     clip_audio, clip_sample_rate = torchaudio.load(converted_wavfile)
                 finally:
@@ -231,16 +232,50 @@ def _get_db_speaker_attribute(value, orig, dest, cursor):
 
 
 def _get_speaker_embedding_file(speaker_name):
-    return os.path.join(_FOLDER_EMBEDDINGS, speaker_name + '.pkl')
+    hash = _get_speaker_hash(speaker_name)
+    return os.path.join(_FOLDER_EMBEDDINGS, hash + '.pkl')
 
 def _get_speaker_sample_files(speaker_name):
     if os.path.isdir(os.path.join(_FOLDER_WAV, speaker_name)):
-        return sorted(glob.glob(os.path.join(_FOLDER_WAV, speaker_name, '*')))
-    prefix = os.path.join(_FOLDER_WAV, speaker_name)
-    audio_files = glob.glob(prefix + '.*')
-    audio_files = [file for file in audio_files if os.path.splitext(file)[0] == prefix]
-    assert len(audio_files) == 1
+        audio_files = sorted(glob.glob(os.path.join(_FOLDER_WAV, speaker_name, '*')))
+    else:
+        prefix = os.path.join(_FOLDER_WAV, speaker_name)
+        audio_files = glob.glob(prefix + '.*')
+        audio_files = [file for file in audio_files if os.path.splitext(file)[0] == prefix]
+        assert len(audio_files) == 1
     return audio_files
+
+_cached_speaker_hashes = {}
+def _get_speaker_hash(speaker_name):
+    """
+    Return a hash depending on the speaker audio filenames
+    """
+    if speaker_name in _cached_speaker_hashes:
+        return _cached_speaker_hashes[speaker_name]
+    files = _get_speaker_sample_files(speaker_name)
+    hashes = md5sum_files(files)
+    hash = md5sum_object(hashes)
+    prefix = speaker_name.replace(" ", "-").replace("/", "--").lower().strip("_-") + "_"
+    hash = prefix + hash
+    _cached_speaker_hashes[speaker_name] = hash
+    return hash
+
+def md5sum_files(filenames):
+    """Compute the md5 hash of a file or a list of files"""
+    single = False
+    if not isinstance(filenames, list):
+        single = True
+        filenames = [filenames]
+    p = subprocess.Popen(["md5sum", *filenames], stdout = subprocess.PIPE)
+    (stdout, stderr) = p.communicate()
+    assert p.returncode == 0, f"Error running md5sum: {stderr}"
+    md5_string = stdout.decode("utf-8").strip()
+    md5_list = [f.split()[0] for f in md5_string.split("\n")]
+    return md5_list[0] if single else md5_list
+
+
+def md5sum_object(obj):
+    return hashlib.md5(pkl.dumps(obj)).hexdigest()
 
 def _get_speaker_names():
     assert os.path.isdir(_FOLDER_WAV)
