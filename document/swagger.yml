@@ -37,9 +37,13 @@ paths:
         type: integer
       - name: "max_speaker"
         in: "formData"
-        description: "Max number of speakers if spk_number is unknown"
+        description: "Max number of speakers if the number of speaker is unknown"
         required: false
-        type: integer
+        type: integer      
+      - name: "speaker_names"
+        description: "List of candidate speakers (if samples were provided to perform speaker identification)"
+        in: formData
+        type: string        
       responses:
         200:
           description: Successfully transcribe the audio
@@ -47,7 +51,7 @@ paths:
           description: Request error
         500:
           description: Server error
-
+     
   /healthcheck:
     get:
       tags:

@@ -6,7 +6,10 @@ from diarization import logger
 
 @celery.task(name="diarization_task")
 def diarization_task(
-    file_name: str, speaker_count: int = None, max_speaker: int = None
+    file_name: str,
+    speaker_count: int = None,
+    max_speaker: int = None,
+    speaker_names: str = None,
 ):
     """transcribe_task do a synchronous call to the transcribe worker API"""
     logger.info(f"Received transcription task for {file_name} ({speaker_count=}, {max_speaker=})")
@@ -28,6 +31,7 @@ def diarization_task(
             file_path,
             number_speaker=speaker_count,
             max_speaker=max_speaker,
+            speaker_names=speaker_names,
         )
     except Exception as e:
         import traceback

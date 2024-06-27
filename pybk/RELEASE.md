@@ -1,3 +1,6 @@
+# 2.0.0
+- Add speaker identification
+
 # 1.0.0
 - First build of linto-diarization-pybk
 - Based on version 1.1.2 of linto-platform-diarization https://github.com/linto-ai/linto-platform-diarization/blob/47d8d61802dec18dffb9e3d8893bfe490c98315d/RELEASE.md

@@ -4,6 +4,7 @@ LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.
 RUN apt-get update &&\
     apt-get install -y \
     curl \
+    ffmpeg \
     wget \
     unzip \
     libsndfile1 \
@@ -29,6 +30,7 @@ COPY http_server /usr/src/app/http_server
 COPY document /usr/src/app/document
 COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY pyannote/diarization /usr/src/app/diarization
+COPY identification /usr/src/app/identification
 
 # Set VERSION number
 COPY pyannote/RELEASE.md ./

@@ -1,3 +1,6 @@
+# 2.0.0
+- Add speaker identification
+
 # 1.1.1
 - Fix healthcheck on GPU
 
