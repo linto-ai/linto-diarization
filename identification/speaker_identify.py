@@ -126,6 +126,14 @@ def initialize_embeddings(
     os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
     speakers = list(_get_speaker_names())
     for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
+        embedding_file = _get_speaker_embedding_file(speaker_name)
+        if os.path.isfile(embedding_file):
+            try:
+                with open(embedding_file, "rb") as f:
+                    pkl.load(f)
+                continue
+            except Exception as e:
+                os.remove(embedding_file)
         audio_files = _get_speaker_sample_files(speaker_name)
         assert len(audio_files) > 0, f"No audio files found for speaker {speaker_name}"
         audio = None
@@ -162,7 +170,7 @@ def initialize_embeddings(
         spk_embed = compute_embedding(audio)
         # Note: it is important to save the embeddings on the CPU (to be able to load them on the CPU later on)
         spk_embed = spk_embed.cpu()
-        with open(_get_speaker_embedding_file(speaker_name), "wb") as f:
+        with open(embedding_file, "wb") as f:
             pkl.dump(spk_embed, f)
     if log: log.info(f"Speaker identification initialized with {len(speakers)} speakers")
 
