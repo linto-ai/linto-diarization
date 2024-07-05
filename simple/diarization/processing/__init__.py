@@ -14,6 +14,9 @@ if torch.cuda.is_available():
 else:
    USE_GPU = False
 
+device_vad = os.environ.get("DEVICE_VAD", "cpu")
+device_clustering = os.environ.get("DEVICE_CLUSTERING", "cpu")
+
 # Number of CPU threads
 NUM_THREADS = os.environ.get("NUM_THREADS", torch.get_num_threads())
 NUM_THREADS = int(NUM_THREADS)

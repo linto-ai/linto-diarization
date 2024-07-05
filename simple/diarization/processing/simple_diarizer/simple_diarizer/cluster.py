@@ -5,6 +5,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter
 from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 from sklearn.metrics import pairwise_distances
+from .spectral_clustering import NME_SpectralClustering
 
 from .nmesc_clustering import (
     NMESC,
@@ -95,7 +96,8 @@ def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, 
     labels = NME_SpectralClustering(
             S,
             num_clusters=n_clusters,
-            max_num_clusters=max_speakers
+            max_num_clusters=max_speakers,
+            device=device,
         )
     
     """ 
@@ -123,7 +125,16 @@ def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, 
           
     return labels
 
-
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler(feature_range=(0, 1))
+def getCosAffinityMatrix(emb):
+    """
+    Calculate cosine similarity values among speaker embeddings.
+    """
+    sim_d = cosine_similarity(emb)
+    scaler.fit(sim_d)
+    sim_d = scaler.transform(sim_d)
+    return sim_d
 def diagonal_fill(A):
     """
     Sets the diagonal elemnts of the matrix to the max of each row

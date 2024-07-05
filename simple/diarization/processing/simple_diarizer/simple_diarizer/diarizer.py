@@ -79,8 +79,8 @@ class Diarizer:
             )
 
         self.window = window
-        self.period = period        
-    
+        self.period = period
+
     def setup_VAD(self, device):
         self.device_vad = device
         use_gpu = device != "cpu"        
@@ -266,8 +266,7 @@ class Diarizer:
 
         if self.num_threads:
             # For VAD / embedding
-            torch.set_num_threads(self.num_threads)
-
+            torch.set_num_threads(self.num_threads)        
         recname = os.path.splitext(os.path.basename(wav_file))[0]
 
         if check_wav_16khz_mono(wav_file):
@@ -294,8 +293,7 @@ class Diarizer:
             self.log("Extracting embeddings...")
             tic = time.time()
             embeds, segments = self.recording_embeds(signal, fs, speech_ts)
-            self.log(f"Done in {time.time() - tic:.3f} seconds")
-
+            self.log(f"Done in {time.time() - tic:.3f} seconds")            
             [w, k] = embeds.shape
             if w >= 2:
                 self.log("Clustering to {} speakers...".format(num_speakers))
