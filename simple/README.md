@@ -59,6 +59,8 @@ An example of .env file is provided in [simple/.envdefault](https://github.com/l
 |:-|:-|:-|
 | `SERVING_MODE` | (Required) Specify launch mode | `http` |
 | `CONCURRENCY` | Number of worker(s) additional to the main worker | `0` \| `1` \| `2` \| ... |
+| `DEVICE` | Device to use for the embedding model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
+| `DEVICE_CLUSTERING` | Device to use for clustering (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` |
 | `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
 | `DEVICE` | Device to use for the embeddings model (by default, GPU/CUDA is used if it is available, CPU otherwise) | `cpu` \| `cuda` \| `cuda:1` ... |
 | `DEVICE_VAD` | Device to use for the Voice Activity Detection (by default, CPU) | `cpu` \| `cuda` \| `cuda:1` ... |

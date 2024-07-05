@@ -6,7 +6,14 @@ from scipy.ndimage import gaussian_filter
 from sklearn.cluster import AgglomerativeClustering, KMeans, SpectralClustering
 from sklearn.metrics import pairwise_distances
 from .spectral_clustering import NME_SpectralClustering
-from sklearn.metrics.pairwise import cosine_similarity
+
+from .nmesc_clustering import (
+    NMESC,
+    getCosAffinityMatrix,
+    getAffinityGraphMat,
+    _SpectralClustering,
+)
+
 
 def cluster_AHC(embeds, n_clusters=None, threshold=None, metric="cosine", **kwargs):
     """
@@ -80,13 +87,11 @@ def cluster_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enha
 def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, enhance_sim=True, device=None, **kwargs):
     """
     Cluster embeds using NME-Spectral Clustering
-    
-    if n_clusters is None:
-        assert threshold, "If num_clusters is not defined, threshold must be defined"
     """
     
-    #S = cos_similarity(embeds)
-    S =  getCosAffinityMatrix(embeds)
+    """
+    
+    S =  getCosAffinityMatrix(embeds)  #cos_similarity(embeds)
 
     labels = NME_SpectralClustering(
             S,
@@ -94,7 +99,30 @@ def cluster_NME_SC(embeds, n_clusters=None, max_speakers= None, threshold=None, 
             max_num_clusters=max_speakers,
             device=device,
         )
-            
+    
+    """ 
+    
+    mat = getCosAffinityMatrix(embeds)
+    nmesc = NMESC(
+        mat,
+        max_num_speaker=max_speakers,
+        max_rp_threshold=0.25,
+        sparse_search=True,
+        sparse_search_volume=30,
+        fixed_thres=None,
+        NME_mat_size=512,
+        device=device
+        
+    )
+    
+    
+    est_num_of_spk, p_hat_value = nmesc.NMEanalysis()    
+    affinity_mat = getAffinityGraphMat(mat, p_hat_value)
+    if n_clusters is not None:
+        est_num_of_spk = n_clusters
+    spectral_model = _SpectralClustering(n_clusters=est_num_of_spk, device=device)
+    labels = spectral_model.predict(affinity_mat)
+          
     return labels
 
 from sklearn.preprocessing import MinMaxScaler

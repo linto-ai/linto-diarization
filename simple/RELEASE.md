@@ -1,4 +1,6 @@
-# 1.0.2
+# 1.1.0
+- Use NEMO spectral clustering, with DEVICE_CLUSTERING environment variable to enforce using CPU ("cpu") or GPU ("cuda")
+- Switch from silero VAD version 4 to version 3.1 (less problems)
 - Fix healthcheck on GPU
 
 # 1.0.1
