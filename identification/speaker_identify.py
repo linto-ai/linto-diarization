@@ -71,21 +71,29 @@ def initialize_db(log):
     conn.commit()
     conn.close()
 
-def check_wav_16khz_mono(wavfile):
+def check_wav_16khz_mono(wavfile, log=None):
     """
     Returns True if a wav file is 16khz and single channel
     """
     try:
         signal, fs = torchaudio.load(wavfile)
-
-        mono = signal.shape[0] == 1
-        freq = fs == 16000
-        if mono and freq:
-            return True
-        else:
-            return False
     except:
-        return False
+        if log: log.info(f"Could not load {wavfile}")
+        return None
+    assert len(signal.shape) == 2
+    mono = (signal.shape[0] == 1)
+    freq = (fs == 16000)
+    if mono and freq:
+        return signal
+
+    reason = ""
+    if not mono:
+        reason += " is not mono"
+    if not freq:
+        if reason:
+            reason += " and"
+        reason += f" is in {freq/1000} kHz"
+    if log: log.info(f"File {wavfile} {reason}")
 
 
 def convert_wavfile(wavfile, outfile):
@@ -143,10 +151,11 @@ def initialize_embeddings(
         audio = None
         max_samples = max_duration * sample_rate
         for audio_file in audio_files:
-            if check_wav_16khz_mono(audio_file):
-                clip_audio, clip_sample_rate = torchaudio.load(audio_file)
+            clip_audio = check_wav_16khz_mono(audio_file, log=log)
+            if clip_audio is not None:
+                clip_sample_rate = 16000
             else:
-                log.info(f"Converting audio file {audio_file} to single channel 16kHz WAV using ffmpeg...")
+                if log: log.info(f"Converting audio file {audio_file} to single channel 16kHz WAV using ffmpeg...")
                 converted_wavfile = os.path.join(
                     os.path.dirname(audio_file), "___{}.wav".format(os.path.splitext(os.path.basename(audio_file))[0])
                 )
