@@ -3,10 +3,10 @@ import logging
 import os
 import sys
 import time
+import json
 
 import memory_tempfile
 import torch
-import torchaudio
 import werkzeug
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer"))
@@ -63,6 +63,28 @@ class SpeakerDiarization:
 
     def run_simple_diarizer(self, file_path, number_speaker, max_speaker):
 
+        cache_file = None
+        if os.environ.get("CACHE_DIARIZATION_RESULTS", False) in ["1", 1, "true", "True"]:
+            cache_dir = "/opt/cache_diarization"
+            os.makedirs(cache_dir, exist_ok=True)
+            # Get the md5sum of the file
+
+            import subprocess
+            import hashlib, pickle
+            p = subprocess.Popen(["md5sum", file_path], stdout = subprocess.PIPE)
+            (stdout, stderr) = p.communicate()
+            assert p.returncode == 0, f"Error running md5sum: {stderr}"
+            file_md5sum = stdout.decode("utf-8").split()[0]
+            def hashmd5(obj):
+                return hashlib.md5(pickle.dumps(obj)).hexdigest()
+
+            cache_file = os.path.join(cache_dir, hashmd5((file_md5sum, number_speaker, max_speaker if not number_speaker else None)) + ".json")
+            if os.path.isfile(cache_file):
+                self.log.info(f"Using cached diarization result from {cache_file}")
+                with open(cache_file, "r") as f:
+                    return json.load(f)
+            self.log.info(f"Cache file {cache_file} will be used")
+
         start_time = time.time()
 
         diarization = self.diar.diarize(
@@ -83,7 +105,13 @@ class SpeakerDiarization:
             )
         )
 
-        return self.format_response(diarization)
+        result = self.format_response(diarization)
+
+        if cache_file:
+            with open(cache_file, "w") as f:
+                json.dump(result, f)
+
+        return result
 
     def format_response(self, segments: list) -> dict:
         #########################
