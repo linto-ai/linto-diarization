@@ -320,6 +320,10 @@ def speaker_identify(
         limit_duration (int): maximum duration (in seconds) of speech to identify a speaker (the first seconds of speech will be used, the other will be ignored)
         log: logger
         spk_tag: information for the logger
+
+    Returns:
+        str: identified speaker name
+        float: similarity score
     """
     tic = time.time()
 
@@ -370,17 +374,19 @@ def speaker_identify(
         if score >= min_similarity:
             votes[speaker_name] += score
 
+    score = None
     if not votes:
         argmax_speaker = _UNKNOWN
     else:
         argmax_speaker = max(votes, key=votes.get)    
+        score = votes[argmax_speaker]
 
     if log:
         log.info(
             f"Speaker recognition {spk_tag} -> {argmax_speaker} (done in {time.time() - tic:.3f} seconds, on {audio_selection.shape[1] / sample_rate:.3f} seconds of audio out of {total_duration:.3f})"
         )
 
-    return argmax_speaker
+    return argmax_speaker, score
 
 def check_speaker_specification(speakers_spec, cursor=None):
     """
@@ -501,10 +507,11 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
     def speech_duration(spk):
         return sum([end - start for (start, end) in speaker_segments[spk]])
     already_identified = []
+    speaker_id_scores = {}
     for spk_tag in sorted(speaker_segments.keys(), key=speech_duration, reverse=True):
         spk_segments = speaker_segments[spk_tag]
         
-        spk_name = speaker_identify(
+        spk_name, spk_id_score = speaker_identify(
             audio, speaker_names, spk_segments,
             # TODO : do we really want to avoid that 2 speakers are the same ?
             #        and if we do, not that it's not invariant to the order in which segments are taken (so we should choose a somewhat optimal order)
@@ -513,11 +520,12 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
             spk_tag=spk_tag,
             **options
         )
-        if spk_name != _UNKNOWN:
+        if spk_name == _UNKNOWN:
+            speaker_map[spk_tag] = spk_tag
+        else:
             already_identified.append(spk_name)
             speaker_map[spk_tag] = spk_name
-        else:
-            speaker_map[spk_tag] = spk_tag
+            speaker_id_scores[spk_name] = spk_id_score
 
     result = {}
     _segments = []
@@ -544,8 +552,11 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
 
         if speaker_name not in _speakers:
             _speakers[speaker_name] = {"spk_id": speaker_name}
+            if speaker_name in speaker_id_scores:
+                _speakers[speaker_name]["spk_id_score"] = round(speaker_id_scores[speaker_name], 3)
             _speakers[speaker_name]["duration"] = round(end - start, 3)
             _speakers[speaker_name]["nbr_seg"] = 1
+
         else:
             _speakers[speaker_name]["duration"] += round(end - start, 3)
             _speakers[speaker_name]["nbr_seg"] += 1
