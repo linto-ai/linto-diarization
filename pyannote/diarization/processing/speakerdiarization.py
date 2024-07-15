@@ -6,6 +6,7 @@ import sys
 import json
 
 import memory_tempfile
+import tqdm
 import torch
 import torchaudio
 import werkzeug
@@ -117,10 +118,31 @@ class SpeakerDiarization:
         else:
             raise ValueError(f"Unsupported audio file type {type(audioFile  )}")
 
+        class ProgressBarHook:
+            def __init__(self):
+                self.pbar = None
+                self.step_name = None
+
+            def __call__(
+                self,
+                step_name,
+                step_artifact,
+                file = None,
+                total = None,
+                completed = None,
+            ):
+                if step_name != self.step_name:
+                    self.step_name = step_name
+                    self.pbar = tqdm.tqdm(total=total)
+                elif total:
+                    self.pbar.total = total
+                self.pbar.set_description(step_name)
+                self.pbar.update(1)
+
         if number_speaker!= None:
-            diarization = self.pipeline(audioFile, num_speakers=number_speaker)
+            diarization = self.pipeline(audioFile, num_speakers=number_speaker, hook=ProgressBarHook())
         else:
-            diarization = self.pipeline(audioFile, min_speakers=1, max_speakers=max_speaker)
+            diarization = self.pipeline(audioFile, min_speakers=1, max_speakers=max_speaker, hook=ProgressBarHook())
 
         # Remove small silences inside speaker turns
         if self.tolerated_silence:
