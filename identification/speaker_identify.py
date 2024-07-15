@@ -300,7 +300,7 @@ def speaker_identify(
     speaker_names,
     segments,
     exclude_speakers,
-    min_similarity=0.25,
+    min_similarity=0.5,
     sample_rate=16_000,
     limit_duration=3 * 60,
     log = None,
