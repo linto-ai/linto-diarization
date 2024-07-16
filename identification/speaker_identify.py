@@ -25,6 +25,8 @@ if device is None:
     else:
         device="cpu"
 
+_can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER", "1").lower() in ["true", "1", "yes"]
+
 _embedding_model = None
 
 # Constants (that could be env variables)
@@ -515,7 +517,7 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
             audio, speaker_names, spk_segments,
             # TODO : do we really want to avoid that 2 speakers are the same ?
             #        and if we do, not that it's not invariant to the order in which segments are taken (so we should choose a somewhat optimal order)
-            exclude_speakers=already_identified,
+            exclude_speakers=([] if _can_identify_twice_the_same_speaker else already_identified),
             log=log,
             spk_tag=spk_tag,
             **options
