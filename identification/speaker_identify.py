@@ -3,6 +3,8 @@ if speechbrain.__version__ >= "1.0.0":
    from speechbrain.inference.speaker import EncoderClassifier
 else:
    from speechbrain.pretrained import EncoderClassifier
+from pyannote.audio import Model
+from pyannote.audio import Inference
 import os
 from collections import defaultdict
 import torch
@@ -129,11 +131,9 @@ def initialize_embeddings(
     global _embedding_model
     if _embedding_model is None:
         tic = time.time()
-        _embedding_model = EncoderClassifier.from_hparams(
-            source="speechbrain/spkrec-ecapa-voxceleb",
-            # savedir="pretrained_models/spkrec-ecapa-voxceleb",
-            run_opts={"device":device}
-        )
+        _embedding_model = Model.from_pretrained(
+            "pyannote/embedding",
+            use_auth_token="****")
         if log: log.info(f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {device}")
 
     os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
@@ -181,23 +181,17 @@ def initialize_embeddings(
 
         spk_embed = compute_embedding(audio)
         # Note: it is important to save the embeddings on the CPU (to be able to load them on the CPU later on)
-        spk_embed = spk_embed.cpu()
+        #spk_embed = spk_embed.cpu()
         with open(embedding_file, "wb") as f:
             pkl.dump(spk_embed, f)
     if log: log.info(f"Speaker identification initialized with {len(speakers)} speakers")
 
-def compute_embedding(audio, min_len = 640):
-    """
-    Compute speaker embedding from audio
-
-    Args:
-        audio (torch.Tensor): audio waveform
-    """
-    assert _embedding_model is not None, "Speaker identification model not initialized"
-    # The following is to avoid a failure on too short audio (less than 640 samples = 40ms at 16kHz)
+def compute_embedding(audio, min_len = 640):       
     if audio.shape[-1] < min_len:
         audio = torch.cat([audio, torch.zeros(audio.shape[0], min_len - audio.shape[-1])], dim=-1)
-    return _embedding_model.encode_batch(audio)
+    inference = Inference(_embedding_model, window="whole")
+    inference.to(torch.device("cuda"))
+    return inference({"waveform":audio, "sample_rate": 16000})
 
 def _get_db_speaker_ids(cursor=None):
     return _get_db_possible_values("id", cursor)
