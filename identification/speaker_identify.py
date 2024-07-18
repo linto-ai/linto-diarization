@@ -353,6 +353,8 @@ def speaker_identify(
             break
 
     embedding_audio = compute_embedding(audio_selection)
+    embedding_audio = torch.from_numpy(embedding_audio)
+    embedding_audio = embedding_audio.to(_embedding_model.device)
 
     # Loop on the target speakers
     for speaker_name in speaker_names:
@@ -362,6 +364,7 @@ def speaker_identify(
         # Get speaker embedding
         with open(_get_speaker_embedding_file(speaker_name), "rb") as f:
             embedding_speaker = pkl.load(f)
+        embedding_speaker = torch.from_numpy(embedding_speaker)
         embedding_speaker = embedding_speaker.to(_embedding_model.device)
 
         # Compute score similarity
