@@ -355,7 +355,6 @@ def speaker_identify(
     embedding_audio = compute_embedding(audio_selection)
     embedding_audio = torch.from_numpy(embedding_audio)
     embedding_audio = embedding_audio.to(_embedding_model.device)
-
     # Loop on the target speakers
     for speaker_name in speaker_names:
         if speaker_name in exclude_speakers:
