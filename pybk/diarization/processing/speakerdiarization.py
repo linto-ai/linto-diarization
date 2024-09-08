@@ -280,7 +280,7 @@ class SpeakerDiarization:
         json["segments"] = _segments
         return json
 
-    def run(self, audioFile, number_speaker: int = None, max_speaker: int = None):
+    def run(self, audioFile, speaker_count: int = None, max_speaker: int = None):
         self.log.debug(f"Starting diarization on file {audioFile}")
         try:
             start_time = time.time()
@@ -375,7 +375,7 @@ class SpeakerDiarization:
                     self.N_init,
                     segmentBKTable,
                     segmentCVTable,
-                    number_speaker,
+                    speaker_count,
                     self.sigma,
                     self.percentile,
                     max_speaker if max_speaker is not None else self.maxNrSpeakers,

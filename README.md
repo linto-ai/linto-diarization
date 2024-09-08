@@ -39,7 +39,7 @@ docker run -it --rm \
 3. Open the swagger in a browser: [http://localhost:8080/docs](http://localhost:8080/docs)
    Unfold `/diarization` route and click "Try it out". Then
    - Choose a file
-   - Specify either `spk_number` (Fixed number of speaker) or `max_speaker` (Max number of speakers)
+   - Specify either `speaker_count` (Fixed number of speaker) or `max_speaker` (Max number of speakers)
    - Click `Execute`
 
 ### Celery worker

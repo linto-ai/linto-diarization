@@ -622,13 +622,13 @@ def getSpectralClustering(
     N_init,
     bkT,
     cvT,
-    number_speaker,
+    speaker_count,
     sigma,
     percentile,
     maxNrSpeakers,
     random_state = None,
 ):
-    if number_speaker is None:
+    if speaker_count is None:
         #  Compute affinity matrix.
         simMatrix = binaryKeySimilarity_cdist(bestClusteringMetric, bkT, cvT, bkT, cvT)
 
@@ -637,7 +637,7 @@ def getSpectralClustering(
 
         (eigenvalues, eigenvectors) = compute_sorted_eigenvectors(affinity)
         # Get number of clusters.
-        number_speaker = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-2)
+        speaker_count = compute_number_of_clusters(eigenvalues, maxNrSpeakers, 1e-2)
 
     else:
         #  Compute affinity matrix.
@@ -648,7 +648,7 @@ def getSpectralClustering(
 
     bestClusteringID = spectral_clustering(
         affinity,
-        n_clusters=number_speaker,
+        n_clusters=speaker_count,
         eigen_solver=None,
         random_state=random_state,
         n_init=25,

@@ -30,7 +30,7 @@ paths:
         description: "Audio File - WaveFile"
         required: true
         type: "file"
-      - name: "spk_number"
+      - name: "speaker_count"
         in: "formData"
         description: "Fixed number of speaker (Optional)"
         required: false

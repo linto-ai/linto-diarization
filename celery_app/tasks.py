@@ -29,7 +29,7 @@ def diarization_task(
     try:
         result = diarizationworker.run(
             file_path,
-            number_speaker=speaker_count,
+            speaker_count=speaker_count,
             max_speaker=max_speaker,
             speaker_names=speaker_names,
         )
