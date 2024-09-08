@@ -11,17 +11,18 @@ from tqdm.autonotebook import tqdm
 
 from .cluster import cluster_AHC, cluster_SC, cluster_NME_SC
 from .utils import check_wav_16khz_mono, convert_wavfile
-
+from .utils_vad import get_speech_timestamps,OnnxWrapper
 
 class Diarizer:
     def __init__(
         self,
         embed_model="xvec",
-        cluster_method="sc",
+        cluster_method="nme-sc",
         window=1.5,
         period=0.75,
         device=None,
         device_vad="cpu",
+        device_clustering=None,
         num_threads=None,
         logger=None,
     ):
@@ -39,25 +40,31 @@ class Diarizer:
 
         if cluster_method == "ahc":
             self.cluster = cluster_AHC
-        if cluster_method == "sc":
+        elif cluster_method == "sc":
             self.cluster = cluster_SC
-        if cluster_method == "nme-sc":
+        elif cluster_method == "nme-sc":
             self.cluster = cluster_NME_SC
+        else:
+            raise ValueError(f"Invalid cluster method '{cluster_method}'")
 
         default_device = "cuda" if torch.cuda.is_available() else "cpu"
         if device_vad is None:
             device_vad = default_device
+        if device_clustering is None:
+            device_clustering = default_device
+        if device is None:
+            device = default_device
+
+        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering={device_clustering} (with {num_threads} CPU threads)")
 
         self.vad_model, self.get_speech_ts = self.setup_VAD(device_vad)
 
-        if device is None:
-            device = default_device
         self.num_threads = num_threads
         if not num_threads:
             num_threads = torch.get_num_threads()
 
-        self.log(f"Devices: VAD={device_vad}, embedding={device}, clustering=cpu (with {num_threads} CPU threads)")
-
+        self.device_clustering = device_clustering
+        
         if embed_model == "xvec":
             self.embed_model = EncoderClassifier.from_hparams(
                 source="speechbrain/spkrec-xvect-voxceleb",
@@ -72,22 +79,18 @@ class Diarizer:
             )
 
         self.window = window
-        self.period = period
-
+        self.period = period        
+    
     def setup_VAD(self, device):
         self.device_vad = device
-        use_gpu = device != "cpu"
-        model, utils = torch.hub.load(
-            repo_or_dir="snakers4/silero-vad",
-            model="silero_vad",
-            onnx=not use_gpu,
-            # map_location=device
-        )
+        use_gpu = device != "cpu"        
+        dirname = os.path.dirname(__file__)        
+        model = OnnxWrapper(f"{dirname}/silero_vad.onnx")      
         if use_gpu:
+            raise NotImplementedError("VAD model does not support GPU")
             model = model.to(device)
-        # force_reload=True)
 
-        get_speech_ts = utils[0]
+        get_speech_ts = get_speech_timestamps
         return model, get_speech_ts
 
     def vad(self, signal):
@@ -209,7 +212,7 @@ class Diarizer:
         self,
         wav_file,
         num_speakers=2,
-        max_speakers=None,
+        max_speakers=25,
         threshold=None,
         silence_tolerance=0.2,
         enhance_sim=True,
@@ -303,6 +306,7 @@ class Diarizer:
                     max_speakers=max_speakers,
                     threshold=threshold,
                     enhance_sim=enhance_sim,
+                    device=self.device_clustering
                 )
 
                 cleaned_segments = self.join_segments(cluster_labels, segments)

@@ -3,10 +3,16 @@ import os
 
 
 device = os.environ.get("DEVICE")
-if device is None:
-   USE_GPU = torch.cuda.is_available()
+device_vad = "cpu" # Not implemented os.environ.get("DEVICE_VAD", "cpu")
+device_clustering = os.environ.get("DEVICE_CLUSTERING")
+if torch.cuda.is_available():
+   USE_GPU = (
+      device != "cpu"
+      or device_clustering  != "cpu"
+      or device_vad != "cpu"
+   )
 else:
-   USE_GPU = (device != "cpu")
+   USE_GPU = False
 
 # Number of CPU threads
 NUM_THREADS = os.environ.get("NUM_THREADS", torch.get_num_threads())
@@ -18,6 +24,6 @@ torch.set_num_threads(1)
 
 from .speakerdiarization import SpeakerDiarization
 
-diarizationworker = SpeakerDiarization(device=device, num_threads=NUM_THREADS)
+diarizationworker = SpeakerDiarization(device=device, device_clustering=device_clustering, device_vad=device_vad, num_threads=NUM_THREADS)
 
 __all__ = ["diarizationworker"]
