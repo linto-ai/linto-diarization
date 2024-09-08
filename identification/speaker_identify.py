@@ -403,55 +403,62 @@ def check_speaker_specification(speakers_spec, cursor=None):
         raise RuntimeError("Speaker identification is disabled (no reference speakers)")
 
     # Read list / dictionary
-    if isinstance(speakers_spec, str) and speakers_spec != "*":
-        try:
-            speakers_spec = json.loads(speakers_spec)
-        except Exception as err:
-            if "|" in speakers_spec:
+    if isinstance(speakers_spec, str):
+        speakers_spec = speakers_spec.strip()
+        print("NOCOMMIT", speakers_spec, speakers_spec and (speakers_spec == "*"), _get_db_speaker_names())
+        if speakers_spec:
+            if speakers_spec == "*":
+                # Wildcard: all speakers
+                speakers_spec = list(_get_db_speaker_names())
+            elif speakers_spec[0] in "[{":
+                try:
+                    speakers_spec = json.loads(speakers_spec)
+                except Exception as err:
+                    if "|" in speakers_spec:
+                        speakers_spec = speakers_spec.split("|")
+                    else:
+                        raise ValueError(f"Unsupported reference speaker specification: {speakers_spec} (except empty string, \"*\", or \"speaker1|speaker2|...|speakerN\", or \"[\"speaker1\", \"speaker2\", ..., \"speakerN\"]\")") from err
+                if isinstance(speakers_spec, dict):
+                    speakers_spec = [speakers_spec]
+            else:
                 speakers_spec = speakers_spec.split("|")
-                speakers_spec = [s for s in speakers_spec if s]
-            raise ValueError(f"Unsupported reference speaker specification: {speakers_spec} (except empty string, \"*\", or \"speaker1|speaker2|...|speakerN\", or \"[\"speaker1\", \"speaker2\", ..., \"speakerN\"]\")") from err
-        if isinstance(speakers_spec, dict):
-            speakers_spec = [speakers_spec]
 
     # Convert to list of speaker names
     if not speakers_spec:
         return []
 
-    elif isinstance(speakers_spec, list):
-        all_speaker_names = None
-        speaker_names = []
-        for item in speakers_spec:
-            if isinstance(item, int):
-                items = [_get_db_speaker_name(item, cursor)]
-            
-            elif isinstance(item, dict):
-                # Should we really keep this format ?
-                start = item['start']
-                end = item['end']
-                for id in range(start,end+1):
-                    items.append(_get_db_speaker_id(id))
-            
-            elif isinstance(item, str):
-                if all_speaker_names is None:
-                    all_speaker_names = _get_db_speaker_names(cursor)
-                if item not in all_speaker_names:
-                    raise ValueError(f"Unknown speaker name '{item}'")
-                items = [item]
-            
-            else:
-                raise ValueError(f"Unsupported reference speaker specification of type {type(item)} (in list): {speakers_spec}")
-            
-            for item in items:
-                if item not in speaker_names:
-                    speaker_names.append(item)
+    if not isinstance(speakers_spec, list):
+        raise ValueError(f"Unsupported reference speaker specification of type {type(speakers_spec)}: {speakers_spec}")
 
-        return speaker_names
+    speakers_spec = [s for s in speakers_spec if s]
+    all_speaker_names = None
+    speaker_names = []
+    for item in speakers_spec:
+        if isinstance(item, int):
+            items = [_get_db_speaker_name(item, cursor)]
+        
+        elif isinstance(item, dict):
+            # Should we really keep this format ?
+            start = item['start']
+            end = item['end']
+            for id in range(start,end+1):
+                items.append(_get_db_speaker_id(id))
+        
+        elif isinstance(item, str):
+            if all_speaker_names is None:
+                all_speaker_names = _get_db_speaker_names(cursor)
+            if item not in all_speaker_names:
+                raise ValueError(f"Unknown speaker name '{item}'")
+            items = [item]
+        
+        else:
+            raise ValueError(f"Unsupported reference speaker specification of type {type(item)} (in list): {speakers_spec}")
+        
+        for item in items:
+            if item not in speaker_names:
+                speaker_names.append(item)
 
-    elif speakers_spec == "*":
-        return list(_get_db_speaker_names())
-
-    raise ValueError(f"Unsupported reference speaker specification of type {type(speakers_spec)}: {speakers_spec}")
+    return speaker_names
     
 
 def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*", log=None, options={}):
