@@ -30,8 +30,8 @@ _can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SA
 _embedding_model = None
 
 # Constants (that could be env variables)
-_FOLDER_WAV = "/opt/speaker_samples"
-_FOLDER_INTERNAL = "/opt/speaker_precomputed"
+_FOLDER_WAV = os.environ.get("SPEAKER_SAMPLES_FOLDER", "/opt/speaker_samples")
+_FOLDER_INTERNAL = os.environ.get("SPEAKER_PRECOMPUTED_FOLDER", "/opt/speaker_precomputed")
 _FOLDER_EMBEDDINGS = f"{_FOLDER_INTERNAL}/embeddings"
 _FILE_DATABASE = f"{_FOLDER_INTERNAL}/speakers_database"
 
@@ -407,7 +407,10 @@ def check_speaker_specification(speakers_spec, cursor=None):
         try:
             speakers_spec = json.loads(speakers_spec)
         except Exception as err:
-            raise ValueError(f"Unsupported reference speaker specification: {speakers_spec}") from err
+            if "|" in speakers_spec:
+                speakers_spec = speakers_spec.split("|")
+                speakers_spec = [s for s in speakers_spec if s]
+            raise ValueError(f"Unsupported reference speaker specification: {speakers_spec} (except empty string, \"*\", or \"speaker1|speaker2|...|speakerN\", or \"[\"speaker1\", \"speaker2\", ..., \"speakerN\"]\")") from err
         if isinstance(speakers_spec, dict):
             speakers_spec = [speakers_spec]
 
@@ -423,6 +426,7 @@ def check_speaker_specification(speakers_spec, cursor=None):
                 items = [_get_db_speaker_name(item, cursor)]
             
             elif isinstance(item, dict):
+                # Should we really keep this format ?
                 start = item['start']
                 end = item['end']
                 for id in range(start,end+1):

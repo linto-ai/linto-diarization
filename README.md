@@ -1,7 +1,9 @@
 # LinTO-diarization
 
-LinTO-diarization is an API for Speaker Diarization,
-which can currently work with several technologies.
+LinTO-diarization is an API for Speaker Diarization (segmenting an audio stream into homogeneous segments according to the speaker identity),
+with some capabilities for Speaker Identification when audio samples of known speakers are provided.
+
+LinTO-diarization can currently work with several technologies.
 The following families of technologies are currently supported (please refer to respective documentation for more details):
 * [PyBK](pybk/README.md) 
 * [PyAnnote](pyannote/README.md)
