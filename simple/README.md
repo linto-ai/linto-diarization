@@ -231,10 +231,10 @@ The /docs route offers a OpenAPI/swagger interface.
 
 Diarization worker accepts requests with the following arguments:
 
-* `file_path`: (str) Is the location of the file within the shared_folder. /.../SHARED_FOLDER/{file_path}
-* `speaker_count`: (int default None) Fixed number of speakers.
-* `max_speaker`: (int default None) Max number of speaker if speaker_count=None. 
-* `speaker_names`: (string - optional) List of target speaker names, speaker identification (if speaker samples are provided only). Possible values are
+* `file`: (str) Is the relative path of the file in the shared_folder.
+* `speaker_count`: (int, default None) Fixed number of speakers.
+* `max_speaker`: (int, default None) Max number of speaker if speaker_count=None. 
+* `speaker_names`: (string, optional) List of target speaker names, speaker identification (if speaker samples are provided only). Possible values are
   * empty string "": no speaker identification
   * wild card "`*`": speaker identification for all speakers
   * list of speaker names in json format (ex: "`["speaker1", ..., "speakerN"]`") or separated by `|` (ex: "`speaker1|...|speakerN`"): speaker identification for the listed speakers only
