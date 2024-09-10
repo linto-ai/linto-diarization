@@ -75,7 +75,7 @@ class SpeakerDiarization:
         initialize_speaker_identification(self.log)
 
 
-    def run_pyannote(self, audioFile, number_speaker, max_speaker):
+    def run_pyannote(self, audioFile, speaker_count, max_speaker):
 
         cache_file = None
         if os.environ.get("CACHE_DIARIZATION_RESULTS", False) in ["1", 1, "true", "True"]:
@@ -92,7 +92,7 @@ class SpeakerDiarization:
             def hashmd5(obj):
                 return hashlib.md5(pickle.dumps(obj)).hexdigest()
 
-            cache_file = os.path.join(cache_dir, hashmd5((file_md5sum, number_speaker, max_speaker if not number_speaker else None)) + ".json")
+            cache_file = os.path.join(cache_dir, hashmd5((file_md5sum, speaker_count, max_speaker if not speaker_count else None)) + ".json")
             if os.path.isfile(cache_file):
                 self.log.info(f"Using cached diarization result from {cache_file}")
                 with open(cache_file, "r") as f:
@@ -139,8 +139,8 @@ class SpeakerDiarization:
                 self.pbar.set_description(step_name)
                 self.pbar.update(1)
 
-        if number_speaker!= None:
-            diarization = self.pipeline(audioFile, num_speakers=number_speaker, hook=ProgressBarHook())
+        if speaker_count!= None:
+            diarization = self.pipeline(audioFile, num_speakers=speaker_count, hook=ProgressBarHook())
         else:
             diarization = self.pipeline(audioFile, min_speakers=1, max_speakers=max_speaker, hook=ProgressBarHook())
 
@@ -193,7 +193,7 @@ class SpeakerDiarization:
     def run(
         self,
         file_path,
-        number_speaker: int = None,
+        speaker_count: int = None,
         max_speaker: int = None,
         speaker_names = None,
     ):
@@ -211,13 +211,13 @@ class SpeakerDiarization:
 
             with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 file_path.save(ntf.name)
-                return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
+                return self.run(ntf.name, speaker_count, max_speaker, speaker_names=speaker_names)
 
         self.log.info(f"Starting diarization on file {file_path}")
 
         try:
             result = self.run_pyannote(
-                file_path, number_speaker=number_speaker, max_speaker=max_speaker
+                file_path, speaker_count=speaker_count, max_speaker=max_speaker
             )
             result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log)
             return result

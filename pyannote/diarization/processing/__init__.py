@@ -6,7 +6,7 @@ if device is None:
 try:
    torch.device(device)
 except Exception as err:
-  raise RuntimeError(f"Invalid device '{device}'") from err
+   raise RuntimeError(f"Invalid device '{device}'") from err
 
 USE_GPU = (device != "cpu")
 

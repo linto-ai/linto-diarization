@@ -61,7 +61,7 @@ class SpeakerDiarization:
 
         initialize_speaker_identification(self.log)
 
-    def run_simple_diarizer(self, file_path, number_speaker, max_speaker):
+    def run_simple_diarizer(self, file_path, speaker_count, max_speaker):
 
         cache_file = None
         if os.environ.get("CACHE_DIARIZATION_RESULTS", False) in ["1", 1, "true", "True"]:
@@ -78,7 +78,7 @@ class SpeakerDiarization:
             def hashmd5(obj):
                 return hashlib.md5(pickle.dumps(obj)).hexdigest()
 
-            cache_file = os.path.join(cache_dir, hashmd5((file_md5sum, number_speaker, max_speaker if not number_speaker else None)) + ".json")
+            cache_file = os.path.join(cache_dir, hashmd5((file_md5sum, speaker_count, max_speaker if not speaker_count else None)) + ".json")
             if os.path.isfile(cache_file):
                 self.log.info(f"Using cached diarization result from {cache_file}")
                 with open(cache_file, "r") as f:
@@ -89,7 +89,7 @@ class SpeakerDiarization:
 
         diarization = self.diar.diarize(
             file_path,
-            num_speakers=number_speaker,
+            num_speakers=speaker_count,
             max_speakers=max_speaker,
             silence_tolerance=self.tolerated_silence,
             threshold=3e-1,
@@ -194,7 +194,7 @@ class SpeakerDiarization:
     def run(
         self,
         file_path,
-        number_speaker: int = None,
+        speaker_count: int = None,
         max_speaker: int = None,
         speaker_names = None,
     ):
@@ -210,16 +210,16 @@ class SpeakerDiarization:
 
             with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 file_path.save(ntf.name)
-                return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
+                return self.run(ntf.name, speaker_count, max_speaker, speaker_names=speaker_names)
 
         self.log.info(f"Starting diarization on file {file_path}")
 
-        if number_speaker is None and max_speaker is None:
-            raise Exception("Either number_speaker or max_speaker must be set")
+        if speaker_count is None and max_speaker is None:
+            raise Exception("Either speaker_count or max_speaker must be set")
 
         try:                       
             result = self.run_simple_diarizer(
-                file_path, number_speaker=number_speaker, max_speaker=max_speaker
+                file_path, speaker_count=speaker_count, max_speaker=max_speaker
             )
             result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log)
             return result

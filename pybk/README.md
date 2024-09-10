@@ -166,8 +166,8 @@ Diarization API
 * Method: POST
 * Response content: application/json
 * File: A Wave file
-* spk_number: (integer - optional) Number of speakers. If empty, diarization will clusterize automatically.
-* max_speaker: (integer - optional) Max number of speakers if spk_number is unknown. 
+* speaker_count: (integer - optional) Number of speakers. If empty, diarization will clusterize automatically.
+* max_speaker: (integer - optional) Max number of speakers if speaker_count is unknown. 
 
 Return a json object when using structured as followed:
 ```json
@@ -216,7 +216,7 @@ On a successfull transcription the returned object is a json object structured a
 ### Curl
 You can test you http API using curl:
 ```bash 
-curl -X POST "http://YOUR_SERVICE:PORT/diarization" -H  "accept: application/json" -H  "Content-Type: multipart/form-data" -F "file=@YOUR_FILE.wav;type=audio/x-wav" -F "spk_number=NUMBER_OF_SPEAKERS"
+curl -X POST "http://YOUR_SERVICE:PORT/diarization" -H  "accept: application/json" -H  "Content-Type: multipart/form-data" -F "file=@YOUR_FILE.wav;type=audio/x-wav" -F "speaker_count=NUMBER_OF_SPEAKERS"
 ```
 
 ## License

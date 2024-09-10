@@ -18,10 +18,14 @@ else
         exit 1
     fi
 
+    # Check if GPU is in used
+    has_gpu=$(nvidia-smi --query-compute-apps pid --format=csv,noheader | wc -l)
+    # Note: we should add a check on the PID ("| grep $PID")... BUT the PID can be different in the container than on the host
+
     # Attempt a ping
     if ! celery --app=celery_app.celeryapp inspect ping -d ${SERVICE_NAME}_worker@$HOSTNAME --timeout=20; then
         # Check GPU utilization
-        if nvidia-smi --query-compute-apps pid --format=csv,noheader | grep $PID; then
+        if [ $has_gpu -gt 0 ]; then
             # GPU is being utilized, assuming healthy
             echo "Celery worker not responding in time but GPU is being utilized (trying to ping again)"
             exit 0

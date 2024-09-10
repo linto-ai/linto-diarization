@@ -1,29 +1,23 @@
 #!/usr/bin/env python3
 import logging
-import os,sys
+import os
 import time
 import uuid
 
 import librosa
-import memory_tempfile
 import numpy as np
+
 import pyBK.diarizationFunctions as pybk
-import werkzeug
+
 # from spafe.features.mfcc import mfcc, imfcc
 from pydub import AudioSegment
 from python_speech_features import mfcc
 
-sys.path.append(
-    os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "identification"
-    )
-)
-import identification
-from identification.speaker_identify import (
-    initialize_speaker_identification,
-    check_speaker_specification,
-    speaker_identify_given_diarization,
-)
+import pyBK.diarizationFunctions as pybk
+
+import memory_tempfile
+import werkzeug
+
 
 class SpeakerDiarization:
     def __init__(self):
@@ -95,10 +89,18 @@ class SpeakerDiarization:
 
         self.tempfile = None
 
-        initialize_speaker_identification(self.log)
-
     def compute_feat_Librosa(self, file_path):
         try:
+            if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
+
+                if self.tempfile is None:
+                    self.tempfile = memory_tempfile.MemoryTempfile(filesystem_types=['tmpfs', 'shm'], fallback=True)
+                    self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
+
+                with self.tempfile.NamedTemporaryFile(suffix = ".wav") as ntf:
+                    file_path.save(ntf.name)
+                    return self.compute_feat_Librosa(ntf.name)
+
             self.sr = 16000
             audio = AudioSegment.from_wav(file_path)
             audio = audio.set_frame_rate(self.sr)
@@ -278,23 +280,8 @@ class SpeakerDiarization:
         json["segments"] = _segments
         return json
 
-    def run(self, audioFile, number_speaker: int = None, max_speaker: int = None, speaker_names = None):
-
-        # Early check on speaker names
-        speaker_names = check_speaker_specification(speaker_names)
-
-        self.log.info(f"Starting diarization on file {audioFile}")
-
-        if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
-            if self.tempfile is None:
-                self.tempfile = memory_tempfile.MemoryTempfile(
-                    filesystem_types=["tmpfs", "shm"], fallback=True
-                )
-                self.log.info(f"Using temporary folder {self.tempfile.gettempdir()}")
-
-            with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
-                audioFile.save(ntf.name)
-                return self.run(ntf.name, number_speaker, max_speaker, speaker_names=speaker_names)
+    def run(self, audioFile, speaker_count: int = None, max_speaker: int = None):
+        self.log.debug(f"Starting diarization on file {audioFile}")
         try:
             start_time = time.time()
             self.log.debug(
@@ -388,7 +375,7 @@ class SpeakerDiarization:
                     self.N_init,
                     segmentBKTable,
                     segmentCVTable,
-                    number_speaker,
+                    speaker_count,
                     self.sigma,
                     self.percentile,
                     max_speaker if max_speaker is not None else self.maxNrSpeakers,
@@ -426,9 +413,6 @@ class SpeakerDiarization:
                     np.squeeze(finalClusteringTableResegmentation),
                     duration,
                 )
-                result = self.format_response(segments)
-                self.log.debug(segments)
-                
             else:
                 return [[0, duration, 1], [duration, -1, -1]]
 
@@ -439,8 +423,6 @@ class SpeakerDiarization:
                     float(int(time.time() - start_time) / duration),
                 )
             )
-            result = speaker_identify_given_diarization(audioFile, result, speaker_names, log=self.log)
-            return result
         except ValueError as v:
             self.log.error(v)
             raise ValueError(
@@ -451,4 +433,6 @@ class SpeakerDiarization:
             raise Exception(
                 "Speaker diarization failed during processing the speech signal"
             )
-        
+        segments = self.format_response(segments)
+        self.log.debug(segments)
+        return segments
