@@ -1,11 +1,13 @@
 # LinTO-diarization
 
-LinTO-diarization is an API for Speaker Diarization,
-which can currently work with several technologies.
+LinTO-diarization is an API for Speaker Diarization (segmenting an audio stream into homogeneous segments according to the speaker identity),
+with some capabilities for Speaker Identification when audio samples of known speakers are provided.
+
+LinTO-diarization can currently work with several technologies.
 The following families of technologies are currently supported (please refer to respective documentation for more details):
-* [PyBK](pybk/README.md) 
 * [PyAnnote](pyannote/README.md)
 * [simple_diarizer](simple/README.md)
+* [PyBK](pybk/README.md) (deprecated)
 
 LinTO-diarization can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
@@ -13,15 +15,15 @@ LinTO-diarization can either be used as a standalone transcription service or de
 
 Below are examples of how to test diarization with "simple_diarizer", on Linux OS with docker installed.
 
-"simple_diarizer" is the recommended diarization method.
-In what follow, you can replace "simple" by "pybk" or "pyannote" to try other methods.
+"PyAnnote" is the recommended diarization method.
+In what follow, you can replace "pyannote" by "simple" or "pybk" to try other methods.
 
 ### HTTP Server
 
 1. If needed, build docker image 
 
 ```bash
-docker build . -t linto-diarization-simple:latest -f simple/Dockerfile
+docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
 ```
 
 2. Launch docker container (and keep it running)
@@ -31,13 +33,13 @@ docker run -it --rm \
     -p 8080:80 \
     --shm-size=1gb --tmpfs /run/user/0 \
     --env SERVICE_MODE=http \
-    linto-diarization-simple:latest
+    linto-diarization-pyannote:latest
 ```
 
 3. Open the swagger in a browser: [http://localhost:8080/docs](http://localhost:8080/docs)
    Unfold `/diarization` route and click "Try it out". Then
    - Choose a file
-   - Specify either `spk_number` (Fixed number of speaker) or `max_speaker` (Max number of speakers)
+   - Specify either `speaker_count` (Fixed number of speaker) or `max_speaker` (Max number of speakers)
    - Click `Execute`
 
 ### Celery worker
@@ -47,7 +49,7 @@ In the following we assume we want to test on an audio that is in `$HOME/test.wa
 1. If needed, build docker image 
 
 ```bash
-docker build . -t linto-diarization-simple:latest -f simple/Dockerfile
+docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
 ```
 
 2. Run Redis server
@@ -69,7 +71,7 @@ docker run -it --rm \
     --env SERVICES_BROKER=redis://172.17.0.1:6379 \
     --env BROKER_PASS= \
     --env CONCURRENCY=2 \
-    linto-diarization-simple:latest
+    linto-diarization-pyannote:latest
 ```
 
 3. Testing with a given audio file can be done using python3 (with packages `celery` and `redis` installed).

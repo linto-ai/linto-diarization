@@ -1,3 +1,7 @@
+# 2.0.0
+- Add speaker identification
+- Add progress bar
+
 # 1.1.1
 - Fix healthcheck on GPU
 

@@ -1,3 +1,6 @@
+# 2.0.0
+- Add speaker identification
+
 # 1.1.0
 - Use NEMO spectral clustering, with DEVICE_CLUSTERING environment variable to enforce using CPU ("cpu") or GPU ("cuda")
 - Switch from silero VAD version 4 to version 3.1 (less problems)

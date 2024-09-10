@@ -20,7 +20,7 @@ def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFil
 pipeline {
     agent any
     environment {
-        DOCKER_HUB_REPO_PYBK   = "lintoai/linto-diarization-pybk"
+        // DOCKER_HUB_REPO_PYBK   = "lintoai/linto-diarization-pybk" // DEPRECATED
         DOCKER_HUB_REPO_PYANNOTE = "lintoai/linto-diarization-pyannote"
         DOCKER_HUB_REPO_SIMPLE = "lintoai/linto-diarization-simple"
     }
@@ -35,7 +35,14 @@ pipeline {
                 script {
                     def changedFiles = sh(returnStdout: true, script: 'git diff --name-only HEAD^ HEAD').trim()
                     echo "My changed files: ${changedFiles}"
-                    
+
+                    // // DEPRECATED
+                    // version = sh(
+                    //     returnStdout: true, 
+                    //     script: "awk -v RS='' '/#/ {print; exit}' pybk/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                    // ).trim()
+                    // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles)
+
                     version = sh(
                         returnStdout: true, 
                         script: "awk -v RS='' '/#/ {print; exit}' simple/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
@@ -47,12 +54,6 @@ pipeline {
                         script: "awk -v RS='' '/#/ {print; exit}' pyannote/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
                     buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles)
-
-                    version = sh(
-                        returnStdout: true, 
-                        script: "awk -v RS='' '/#/ {print; exit}' pybk/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
-                    ).trim()
-                    buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles)
                 }
             }
         }
@@ -69,9 +70,9 @@ pipeline {
                     
                     version = 'latest-unstable'
 
+                    // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles) // DEPRECATED
                     buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles)
                     buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles)
-                    buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles)
                 }
             }
         }

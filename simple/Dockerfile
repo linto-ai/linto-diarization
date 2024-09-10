@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 
 # Install python and other dependencies
 RUN apt-get update && \
-    apt-get install -y python3.10 python3-pip ffmpeg git && \
+    apt-get install -y python3.10 python3-pip ffmpeg git sqlite3 libsqlite3-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     ln -s /usr/bin/python3.10 /usr/bin/python
@@ -28,12 +28,14 @@ COPY docker-entrypoint.sh wait-for-it.sh healthcheck.sh ./
 COPY simple/diarization /usr/src/app/diarization
 COPY simple/requirements.txt /usr/src/app/
 COPY simple/RELEASE.md ./
+COPY identification /usr/src/app/identification
 
 # Set path
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 
 # Extract version information
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
+
 
 # Health check and entrypoint for GPU target
 HEALTHCHECK CMD ./healthcheck.sh
