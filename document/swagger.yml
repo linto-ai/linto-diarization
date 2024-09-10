@@ -32,12 +32,12 @@ paths:
         type: "file"
       - name: "speaker_count"
         in: "formData"
-        description: "Fixed number of speaker (Optional)"
+        description: "Fixed number of speakers (Optional)"
         required: false
         type: integer
       - name: "max_speaker"
         in: "formData"
-        description: "Max number of speakers if the number of speaker is unknown"
+        description: "Maximum number of speakers, if the number of speakers is unknown"
         required: false
         type: integer      
       - name: "speaker_names"
