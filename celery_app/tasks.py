@@ -6,12 +6,15 @@ from diarization import logger
 
 @celery.task(name="diarization_task")
 def diarization_task(
-    file_name: str, speaker_count: int = None, max_speaker: int = None
+    file: str,
+    speaker_count: int = None,
+    max_speaker: int = None,
+    speaker_names: str = None,
 ):
     """transcribe_task do a synchronous call to the transcribe worker API"""
-    logger.info(f"Received transcription task for {file_name} ({speaker_count=}, {max_speaker=})")
+    logger.info(f"Received transcription task for {file} ({speaker_count=}, {max_speaker=})")
 
-    file_path = os.path.join("/opt/audio", file_name)
+    file_path = os.path.join("/opt/audio", file)
     if not os.path.isfile(file_path):
         raise Exception("Could not find ressource {}".format(file_path))
 
@@ -26,8 +29,9 @@ def diarization_task(
     try:
         result = diarizationworker.run(
             file_path,
-            number_speaker=speaker_count,
+            speaker_count=speaker_count,
             max_speaker=max_speaker,
+            speaker_names=speaker_names,
         )
     except Exception as e:
         import traceback

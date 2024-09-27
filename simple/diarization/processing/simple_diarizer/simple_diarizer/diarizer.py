@@ -1,15 +1,15 @@
 import os
 import sys
+import time
 from copy import deepcopy
 
 import numpy as np
 import torch
 import torchaudio
-import time
 from speechbrain.inference.speaker import EncoderClassifier
 from tqdm.autonotebook import tqdm
 
-from .cluster import cluster_AHC, cluster_SC, cluster_NME_SC
+from .cluster import cluster_AHC, cluster_NME_SC, cluster_SC
 from .utils import check_wav_16khz_mono, convert_wavfile
 from .utils_vad import get_speech_timestamps,OnnxWrapper
 

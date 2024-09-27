@@ -30,16 +30,20 @@ paths:
         description: "Audio File - WaveFile"
         required: true
         type: "file"
-      - name: "spk_number"
+      - name: "speaker_count"
         in: "formData"
-        description: "Fixed number of speaker (Optional)"
+        description: "Fixed number of speakers (Optional)"
         required: false
         type: integer
       - name: "max_speaker"
         in: "formData"
-        description: "Max number of speakers if spk_number is unknown"
+        description: "Maximum number of speakers, if the number of speakers is unknown"
         required: false
-        type: integer
+        type: integer      
+      - name: "speaker_names"
+        description: "List of candidate speakers (if samples were provided to perform speaker identification)"
+        in: formData
+        type: string        
       responses:
         200:
           description: Successfully transcribe the audio
@@ -47,7 +51,7 @@ paths:
           description: Request error
         500:
           description: Server error
-
+     
   /healthcheck:
     get:
       tags:
