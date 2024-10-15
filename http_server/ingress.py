@@ -3,6 +3,7 @@
 import json
 import logging
 from time import time
+import os
 
 from confparser import createParser
 from flask import Flask, Response, abort, json, request
@@ -10,6 +11,7 @@ from serving import GunicornServing, GeventServing
 from swagger import setupSwaggerUI
 
 from diarization.processing import diarizationworker, USE_GPU
+
 
 app = Flask("__diarization-serving__")
 

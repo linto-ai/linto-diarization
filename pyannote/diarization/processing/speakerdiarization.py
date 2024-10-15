@@ -30,6 +30,8 @@ class SpeakerDiarization:
         device=None,
         num_threads=4,
         tolerated_silence=0,
+        qdrant_client = None,
+        qdrant_collection=None,
     ):
         """
         Speaker Diarization class
@@ -53,6 +55,8 @@ class SpeakerDiarization:
             + (f" ({num_threads} threads)" if device == "cpu" else "")
         )
         self.tolerated_silence = tolerated_silence
+        self.qdrant_client = qdrant_client
+        self.qdrant_collection = qdrant_collection
         home = os.path.expanduser('~')
 
         model_configuration = "pyannote/speaker-diarization-3.1"
@@ -72,7 +76,7 @@ class SpeakerDiarization:
         self.num_threads = num_threads
         self.tempfile = None
 
-        initialize_speaker_identification(self.log)
+        initialize_speaker_identification(self.qdrant_client, self.qdrant_collection,self.log)
 
 
     def run_pyannote(self, audioFile, speaker_count, max_speaker):
@@ -219,7 +223,7 @@ class SpeakerDiarization:
             result = self.run_pyannote(
                 file_path, speaker_count=speaker_count, max_speaker=max_speaker
             )
-            result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log)
+            result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log, qdrant_client=self.qdrant_client, qdrant_collection=self.qdrant_collection)
             return result
         except Exception as e:
             self.log.error(e)

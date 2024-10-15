@@ -40,9 +40,13 @@ _FILE_DATABASE = f"{_FOLDER_INTERNAL}/speakers_database"
 _UNKNOWN = "<<UNKNOWN>>"
 
 
-def initialize_speaker_identification(log):
+def initialize_speaker_identification(
+    qdrant_client = None,
+    qdrant_collection=None,
+    log=None):
+
     initialize_db(log)
-    initialize_embeddings(log)
+    initialize_embeddings(qdrant_client, qdrant_collection, log)
 
 
 def is_speaker_identification_enabled():
@@ -113,11 +117,11 @@ def convert_wavfile(wavfile, outfile):
     return outfile
 
 def initialize_embeddings(
+    qdrant_client = None,
+    qdrant_collection=None,
     log = None,
     max_duration = 60 * 3,
     sample_rate = 16_000,
-    qdrant_client = QdrantClient(url="http://localhost:6333"),
-    qdrant_collection="speaker_embeddings",
     ):
     """
     Pre-compute and store reference speaker embeddings
@@ -140,25 +144,27 @@ def initialize_embeddings(
         )
         if log: log.info(f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {device}")
 
-    # Initialize Qdrant client
-
-    # Create collection if not exists
-    if not qdrant_client.collection_exists(collection_name=qdrant_collection):
+    # Check if the collection exists
+    if qdrant_client.collection_exists(collection_name=qdrant_collection):
         if log:
-            log.info(f"Creating collection: {qdrant_collection}")
-        qdrant_client.create_collection(
-            collection_name=qdrant_collection,
-            vectors_config=VectorParams(
-                size=192,  # Adjust according to your embedding size
-                distance=Distance.COSINE
-            ),
-        )
+            log.info(f"Deleting existing collection: {qdrant_collection}")
+        qdrant_client.delete_collection(collection_name=qdrant_collection)
 
+    # Create collection
+    if log:
+        log.info(f"Creating collection: {qdrant_collection}")
+    qdrant_client.create_collection(
+        collection_name=qdrant_collection,
+        vectors_config=VectorParams(
+            size=192,  # Adjust according to your embedding size
+            distance=Distance.COSINE
+        ),
+    )
 
     os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
     speakers = list(_get_speaker_names())
     points = []  # List to store points for Qdrant upsert
-    for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
+    for _,speaker_name in enumerate(tqdm(speakers, desc="Compute ref. speaker embeddings")):
         audio_files = _get_speaker_sample_files(speaker_name)
         assert len(audio_files) > 0, f"No audio files found for speaker {speaker_name}"
         
@@ -196,9 +202,9 @@ def initialize_embeddings(
         spk_embed = spk_embed.cpu()
         # Prepare point for Qdrant
         point = PointStruct(
-            id=speaker_name,  # Use a unique identifier for each speaker
-            vector=spk_embed.numpy().tolist(),  # Convert to list for Qdrant
-            payload={"person": speaker_name}
+            id=_+1,
+            vector=spk_embed.flatten(),#.numpy().tolist(),  # Convert to list for Qdrant
+            payload={"person": speaker_name.strip()}
         )
 
         points.append(point)  # Append point to the list
@@ -332,10 +338,10 @@ def speaker_identify(
     min_similarity=0.5,
     sample_rate=16_000,
     limit_duration=3 * 60,
+    qdrant_client = None,
+    qdrant_collection=None,
     log = None,
     spk_tag = None,
-    qdrant_client = QdrantClient(url="http://localhost:6333"),
-    qdrant_collection="speaker_embeddings",
     ):
     """
     Run speaker identification on given segments of an audio
@@ -390,7 +396,7 @@ def speaker_identify(
     embedding_audio = compute_embedding(audio_selection)
 
     # Search for similar embeddings in Qdrant
-    results = qdrant_client.search(qdrant_collection, embedding_audio[0])
+    results = qdrant_client.search(qdrant_collection, embedding_audio.flatten())
     
     for result in results:
         speaker_name = result.payload["person"]
@@ -490,7 +496,14 @@ def check_speaker_specification(speakers_spec, cursor=None):
     return speaker_names
     
 
-def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*", log=None, options={}):
+def speaker_identify_given_diarization(
+    audioFile, 
+    diarization, 
+    speakers_spec="*",
+    qdrant_client = None,
+    qdrant_collection=None,
+    log=None, 
+    options={}):
     """
     Run speaker identification on given diarized audio file
 
@@ -560,6 +573,8 @@ def speaker_identify_given_diarization(audioFile, diarization, speakers_spec="*"
             exclude_speakers=([] if _can_identify_twice_the_same_speaker else already_identified),
             log=log,
             spk_tag=spk_tag,
+            qdrant_client=qdrant_client,
+            qdrant_collection=qdrant_collection,
             **options
         )
         if spk_name == _UNKNOWN:

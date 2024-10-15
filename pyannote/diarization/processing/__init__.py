@@ -1,5 +1,13 @@
 import os
 import torch
+from qdrant_client import QdrantClient
+
+# Initialize Qdrant Client
+qdrant_host = os.getenv("QDRANT_HOST", "qdrant")
+qdrant_port = os.getenv("QDRANT_PORT", "6333")
+qdrant_collection = os.getenv("QDRANT_COLLECTION_NAME", "speaker_embeddings")
+qdrant_client = QdrantClient(url=f"http://{qdrant_host}:{qdrant_port}")  # Replace with your Qdrant URL
+
 device = os.environ.get("DEVICE")
 if device is None:
    device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -21,6 +29,6 @@ torch.set_num_threads(1)
 
 from .speakerdiarization import SpeakerDiarization
 
-diarizationworker = SpeakerDiarization(device=device, num_threads=NUM_THREADS)
+diarizationworker = SpeakerDiarization(device=device, num_threads=NUM_THREADS, qdrant_client=qdrant_client, qdrant_collection=qdrant_collection)
 
 __all__ = ["diarizationworker"]
