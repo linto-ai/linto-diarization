@@ -17,6 +17,8 @@ import sqlite3
 import glob
 import json
 from tqdm import tqdm
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import VectorParams, Distance, PointStruct
 
 device = os.environ.get("DEVICE_IDENTIFICATION", os.environ.get("DEVICE", None))
 if device is None:
@@ -114,6 +116,7 @@ def initialize_embeddings(
     log = None,
     max_duration = 60 * 3,
     sample_rate = 16_000,
+    collection_name="speaker_embeddings",
     ):
     """
     Pre-compute and store reference speaker embeddings
@@ -136,8 +139,25 @@ def initialize_embeddings(
         )
         if log: log.info(f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {device}")
 
+    # Initialize Qdrant client
+    client = QdrantClient(url="http://localhost:6333")
+
+    # Create collection if not exists
+    if not client.collection_exists(collection_name=collection_name):
+        if log:
+            log.info(f"Creating collection: {collection_name}")
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(
+                size=192,  # Adjust according to your embedding size
+                distance=Distance.COSINE
+            ),
+        )
+
+
     os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
     speakers = list(_get_speaker_names())
+    points = []  # List to store points for Qdrant upsert
     for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
         embedding_file = _get_speaker_embedding_file(speaker_name)
         if os.path.isfile(embedding_file):
@@ -182,8 +202,23 @@ def initialize_embeddings(
         spk_embed = compute_embedding(audio)
         # Note: it is important to save the embeddings on the CPU (to be able to load them on the CPU later on)
         spk_embed = spk_embed.cpu()
-        with open(embedding_file, "wb") as f:
-            pkl.dump(spk_embed, f)
+        # Prepare point for Qdrant
+        point = PointStruct(
+            id=speaker_name,  # Use a unique identifier for each speaker
+            vector=spk_embed.numpy().tolist(),  # Convert to list for Qdrant
+            payload={"person": speaker_name}
+        )
+
+        points.append(point)  # Append point to the list
+    
+    # Upsert all points to Qdrant in one go
+    if points:
+        operation_info = client.upsert(
+            collection_name=collection_name,
+            wait=True,
+            points=points
+        )
+
     if log: log.info(f"Speaker identification initialized with {len(speakers)} speakers")
 
 def compute_embedding(audio, min_len = 640):
