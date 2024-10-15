@@ -116,7 +116,8 @@ def initialize_embeddings(
     log = None,
     max_duration = 60 * 3,
     sample_rate = 16_000,
-    collection_name="speaker_embeddings",
+    qdrant_client = QdrantClient(url="http://localhost:6333"),
+    qdrant_collection="speaker_embeddings",
     ):
     """
     Pre-compute and store reference speaker embeddings
@@ -140,14 +141,13 @@ def initialize_embeddings(
         if log: log.info(f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {device}")
 
     # Initialize Qdrant client
-    client = QdrantClient(url="http://localhost:6333")
 
     # Create collection if not exists
-    if not client.collection_exists(collection_name=collection_name):
+    if not qdrant_client.collection_exists(collection_name=qdrant_collection):
         if log:
-            log.info(f"Creating collection: {collection_name}")
-        client.create_collection(
-            collection_name=collection_name,
+            log.info(f"Creating collection: {qdrant_collection}")
+        qdrant_client.create_collection(
+            collection_name=qdrant_collection,
             vectors_config=VectorParams(
                 size=192,  # Adjust according to your embedding size
                 distance=Distance.COSINE
@@ -159,17 +159,9 @@ def initialize_embeddings(
     speakers = list(_get_speaker_names())
     points = []  # List to store points for Qdrant upsert
     for speaker_name in tqdm(speakers, desc="Compute ref. speaker embeddings"):
-        embedding_file = _get_speaker_embedding_file(speaker_name)
-        if os.path.isfile(embedding_file):
-            try:
-                with open(embedding_file, "rb") as f:
-                    pkl.load(f)
-                if log: log.info(f"Speaker {speaker_name} embedding already computed")
-                continue
-            except Exception as e:
-                os.remove(embedding_file)
         audio_files = _get_speaker_sample_files(speaker_name)
         assert len(audio_files) > 0, f"No audio files found for speaker {speaker_name}"
+        
         audio = None
         max_samples = max_duration * sample_rate
         for audio_file in audio_files:
@@ -213,8 +205,8 @@ def initialize_embeddings(
     
     # Upsert all points to Qdrant in one go
     if points:
-        operation_info = client.upsert(
-            collection_name=collection_name,
+        operation_info = qdrant_client.upsert(
+            collection_name=qdrant_collection,
             wait=True,
             points=points
         )
@@ -342,6 +334,8 @@ def speaker_identify(
     limit_duration=3 * 60,
     log = None,
     spk_tag = None,
+    qdrant_client = QdrantClient(url="http://localhost:6333"),
+    qdrant_collection="speaker_embeddings",
     ):
     """
     Run speaker identification on given segments of an audio
@@ -395,21 +389,21 @@ def speaker_identify(
 
     embedding_audio = compute_embedding(audio_selection)
 
-    # Loop on the target speakers
-    for speaker_name in speaker_names:
+    # Search for similar embeddings in Qdrant
+    results = qdrant_client.search(qdrant_collection, embedding_audio[0])
+    
+    for result in results:
+        speaker_name = result.payload["person"]
+        
+        # Check if the speaker is in the exclude list
         if speaker_name in exclude_speakers:
             continue
-
-        # Get speaker embedding
-        with open(_get_speaker_embedding_file(speaker_name), "rb") as f:
-            embedding_speaker = pkl.load(f)
-        embedding_speaker = embedding_speaker.to(_embedding_model.device)
-
-        # Compute score similarity
-        score = similarity(embedding_speaker, embedding_audio)
-        score = score.item()
+        
+        # Use the similarity score returned by Qdrant
+        score = result.score  # Directly get the similarity score from the result
         if score >= min_similarity:
             votes[speaker_name] += score
+
 
     score = None
     if not votes:
