@@ -11,13 +11,10 @@ import time
 import subprocess
 import memory_tempfile
 import werkzeug
-import pickle as pkl
-import hashlib
-import sqlite3
 import glob
 import json
 from tqdm import tqdm
-from qdrant_client import QdrantClient
+from qdrant_client import models
 from qdrant_client.http.models import VectorParams, Distance, PointStruct
 
 device = os.environ.get("DEVICE_IDENTIFICATION", os.environ.get("DEVICE", None))
@@ -34,89 +31,14 @@ _embedding_model = None
 # Constants (that could be env variables)
 _FOLDER_WAV = os.environ.get("SPEAKER_SAMPLES_FOLDER", "/opt/speaker_samples")
 _FOLDER_INTERNAL = os.environ.get("SPEAKER_PRECOMPUTED_FOLDER", "/opt/speaker_precomputed")
-_FOLDER_EMBEDDINGS = f"{_FOLDER_INTERNAL}/embeddings"
+
 _FILE_DATABASE = f"{_FOLDER_INTERNAL}/speakers_database"
 
 _UNKNOWN = "<<UNKNOWN>>"
 
 
+
 def initialize_speaker_identification(
-    qdrant_client = None,
-    qdrant_collection=None,
-    log=None):
-
-    initialize_db(log)
-    initialize_embeddings(qdrant_client, qdrant_collection, log)
-
-
-def is_speaker_identification_enabled():
-    return os.path.isdir(_FOLDER_WAV)
-
-# Create / update / check database
-def initialize_db(log):
-    if not is_speaker_identification_enabled():
-        if log: log.info(f"Speaker identification is disabled")
-        return
-    if log: log.info(f"Speaker identification is enabled")
-    os.makedirs(os.path.dirname(_FILE_DATABASE), exist_ok=True)
-    # Create connection
-    conn = sqlite3.connect(_FILE_DATABASE)
-    cursor = conn.cursor()
-    # Creating and inserting into table
-    cursor.execute("""CREATE TABLE IF NOT EXISTS speaker_names (id integer UNIQUE, name TEXT UNIQUE)""")
-    all_ids = list(_get_db_speaker_ids(cursor))
-    all_names = _get_db_speaker_names(cursor)
-    assert all_ids == list(range(1, len(all_ids)+1)), f"Speaker ids are not continuous"
-    assert len(all_names) == len(all_ids), f"Speaker names are not unique"
-    new_id = len(all_ids) + 1
-    for speaker_name in _get_speaker_names():
-        if speaker_name not in all_names:
-            cursor.execute("INSERT OR IGNORE INTO speaker_names (id, name) VALUES (?, ?)", (
-                new_id,
-                speaker_name,
-            ))
-            new_id += 1
-    conn.commit()
-    conn.close()
-
-def check_wav_16khz_mono(wavfile, log=None):
-    """
-    Returns True if a wav file is 16khz and single channel
-    """
-    try:
-        signal, fs = torchaudio.load(wavfile)
-    except:
-        if log: log.info(f"Could not load {wavfile}")
-        return None
-    assert len(signal.shape) == 2
-    mono = (signal.shape[0] == 1)
-    freq = (fs == 16000)
-    if mono and freq:
-        return signal
-
-    reason = ""
-    if not mono:
-        reason += " is not mono"
-    if not freq:
-        if reason:
-            reason += " and"
-        reason += f" is in {freq/1000} kHz"
-    if log: log.info(f"File {wavfile} {reason}")
-
-
-def convert_wavfile(wavfile, outfile):
-    """
-    Converts file to 16khz single channel mono wav
-    """
-    cmd = "ffmpeg -y -i {} -acodec pcm_s16le -ar 16000 -ac 1 {}".format(
-        wavfile, outfile
-    )
-    subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE).wait()
-    if not os.path.isfile(outfile):
-        raise RuntimeError(f"Failed to run conversion: {cmd}")
-    return outfile
-
-def initialize_embeddings(
     qdrant_client = None,
     qdrant_collection=None,
     log = None,
@@ -131,7 +53,8 @@ def initialize_embeddings(
         max_duration (int): maximum duration (in seconds) of speech to use for speaker embeddings
         sample_rate (int): sample rate (of the embedding model)
     """
-    if not is_speaker_identification_enabled():
+    if not (is_speaker_identification_enabled() and qdrant_client and qdrant_collection):
+        if log: log.info(f"Speaker identification is disabled")
         return
     
     global _embedding_model
@@ -139,11 +62,12 @@ def initialize_embeddings(
         tic = time.time()
         _embedding_model = EncoderClassifier.from_hparams(
             source="speechbrain/spkrec-ecapa-voxceleb",
-            # savedir="pretrained_models/spkrec-ecapa-voxceleb",
             run_opts={"device":device}
         )
         if log: log.info(f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {device}")
-
+    
+    if log: log.info(f"Speaker identification is enabled")
+    
     # Check if the collection exists
     if qdrant_client.collection_exists(collection_name=qdrant_collection):
         if log:
@@ -161,7 +85,6 @@ def initialize_embeddings(
         ),
     )
 
-    os.makedirs(_FOLDER_EMBEDDINGS, exist_ok=True)
     speakers = list(_get_speaker_names())
     points = []  # List to store points for Qdrant upsert
     for _,speaker_name in enumerate(tqdm(speakers, desc="Compute ref. speaker embeddings")):
@@ -219,6 +142,49 @@ def initialize_embeddings(
 
     if log: log.info(f"Speaker identification initialized with {len(speakers)} speakers")
 
+
+def is_speaker_identification_enabled():
+    return os.path.isdir(_FOLDER_WAV)
+
+
+def check_wav_16khz_mono(wavfile, log=None):
+    """
+    Returns True if a wav file is 16khz and single channel
+    """
+    try:
+        signal, fs = torchaudio.load(wavfile)
+    except:
+        if log: log.info(f"Could not load {wavfile}")
+        return None
+    assert len(signal.shape) == 2
+    mono = (signal.shape[0] == 1)
+    freq = (fs == 16000)
+    if mono and freq:
+        return signal
+
+    reason = ""
+    if not mono:
+        reason += " is not mono"
+    if not freq:
+        if reason:
+            reason += " and"
+        reason += f" is in {freq/1000} kHz"
+    if log: log.info(f"File {wavfile} {reason}")
+
+
+def convert_wavfile(wavfile, outfile):
+    """
+    Converts file to 16khz single channel mono wav
+    """
+    cmd = "ffmpeg -y -i {} -acodec pcm_s16le -ar 16000 -ac 1 {}".format(
+        wavfile, outfile
+    )
+    subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE).wait()
+    if not os.path.isfile(outfile):
+        raise RuntimeError(f"Failed to run conversion: {cmd}")
+    return outfile
+
+
 def compute_embedding(audio, min_len = 640):
     """
     Compute speaker embedding from audio
@@ -232,52 +198,46 @@ def compute_embedding(audio, min_len = 640):
         audio = torch.cat([audio, torch.zeros(audio.shape[0], min_len - audio.shape[-1])], dim=-1)
     return _embedding_model.encode_batch(audio)
 
-def _get_db_speaker_ids(cursor=None):
-    return _get_db_possible_values("id", cursor)
 
-def _get_db_speaker_names(cursor=None):
-    return _get_db_possible_values("name", cursor)
-
-def _get_db_possible_values(name, cursor, check_unique=True):
-    create_connection = (cursor is None)
-    if create_connection:
-        conn = sqlite3.connect(_FILE_DATABASE)
-        cursor = conn.cursor()
-    cursor.execute(f"SELECT {name} FROM speaker_names")
-    values = cursor.fetchall()
-    values = [value[0] for value in values]
-    if check_unique:
-        assert len(values) == len(set(values)), f"Values are not unique"
-    else:
-        values = list(set(values))
-    if create_connection:
-        conn.close()
-    return values
-
-def _get_db_speaker_name(speaker_id, cursor=None):
-    return _get_db_speaker_attribute(speaker_id, "id", "name", cursor)
-
-def _get_db_speaker_id(speaker_name, cursor=None):
-    return _get_db_speaker_attribute(speaker_name, "name", "id", cursor)
-
-def _get_db_speaker_attribute(value, orig, dest, cursor):
-    create_connection = (cursor is None)
-    if create_connection:
-        conn = sqlite3.connect(_FILE_DATABASE)
-        cursor = conn.cursor()
-    item = cursor.execute(f"SELECT {dest} FROM speaker_names WHERE {orig} = '{value}'")
-    item = item.fetchone()
-    assert item, f"Speaker {orig} {value} not found"
-    assert len(item) == 1, f"Speaker {orig} {value} not unique"
-    value = item[0]
-    if create_connection:
-        conn.close()
-    return value
+def _get_db_speaker_names(qdrant_client = None,qdrant_collection=None):
+    
+    response = qdrant_client.scroll(collection_name=qdrant_collection,with_payload=True)
+    return [point.payload.get("person") for point in response[0]]
 
 
-def _get_speaker_embedding_file(speaker_name):
-    hash = _get_speaker_hash(speaker_name)
-    return os.path.join(_FOLDER_EMBEDDINGS, hash + '.pkl')
+def _get_db_speaker_name(speaker_id, qdrant_client = None,qdrant_collection=None):
+
+    # Retrieve the point from Qdrant
+    response = qdrant_client.retrieve(
+        collection_name=qdrant_collection,
+        ids=[speaker_id],
+    )
+    # Extract the 'person' payload from the response
+    if response :
+        return response[0].payload.get('person')
+
+def _get_db_speaker_id(speaker_name, qdrant_client = None,qdrant_collection=None):
+    # Filter Qdrant for speaker_name
+    response = qdrant_client.scroll(
+        collection_name=qdrant_collection,
+        scroll_filter = models.Filter(
+        must=[
+                models.FieldCondition(
+                    key="person",
+                    match=models.MatchValue(value=speaker_name),
+                )
+            ])
+    )
+    # Extract the id
+    points = response[0] if response else []
+
+    if len(points) == 0:
+        raise ValueError(f"Person with name '{speaker_name}' not found in the Qdrant collection.")
+    if len(points) > 1:
+        raise ValueError(f"Multiple persons with the name '{speaker_name}' found. Ensure uniqueness.")
+    return points[0].id
+
+
 
 def _get_speaker_sample_files(speaker_name):
     if os.path.isdir(os.path.join(_FOLDER_WAV, speaker_name)):
@@ -289,37 +249,6 @@ def _get_speaker_sample_files(speaker_name):
         assert len(audio_files) == 1
     return audio_files
 
-_cached_speaker_hashes = {}
-def _get_speaker_hash(speaker_name):
-    """
-    Return a hash depending on the speaker audio filenames
-    """
-    if speaker_name in _cached_speaker_hashes:
-        return _cached_speaker_hashes[speaker_name]
-    files = _get_speaker_sample_files(speaker_name)
-    hashes = md5sum_files(files)
-    hash = md5sum_object(hashes)
-    prefix = speaker_name.replace(" ", "-").replace("/", "--").lower().strip("_-") + "_"
-    hash = prefix + hash
-    _cached_speaker_hashes[speaker_name] = hash
-    return hash
-
-def md5sum_files(filenames):
-    """Compute the md5 hash of a file or a list of files"""
-    single = False
-    if not isinstance(filenames, list):
-        single = True
-        filenames = [filenames]
-    p = subprocess.Popen(["md5sum", *filenames], stdout = subprocess.PIPE)
-    (stdout, stderr) = p.communicate()
-    assert p.returncode == 0, f"Error running md5sum: {stderr}"
-    md5_string = stdout.decode("utf-8").strip()
-    md5_list = [f.split()[0] for f in md5_string.split("\n")]
-    return md5_list[0] if single else md5_list
-
-
-def md5sum_object(obj):
-    return hashlib.md5(pkl.dumps(obj)).hexdigest()
 
 def _get_speaker_names():
     assert os.path.isdir(_FOLDER_WAV)
@@ -425,7 +354,11 @@ def speaker_identify(
 
     return argmax_speaker, score
 
-def check_speaker_specification(speakers_spec, cursor=None):
+def check_speaker_specification(
+    speakers_spec,
+    qdrant_client = None,
+    qdrant_collection=None,        
+    ):
     """
     Check and convert speaker specification to list of speaker names
 
@@ -434,17 +367,17 @@ def check_speaker_specification(speakers_spec, cursor=None):
         cursor (sqlite3.Cursor): optional database cursor
     """
 
-    if speakers_spec and not is_speaker_identification_enabled():
+    if speakers_spec and not (is_speaker_identification_enabled() and qdrant_client and qdrant_collection):
         raise RuntimeError("Speaker identification is disabled (no reference speakers)")
 
     # Read list / dictionary
     if isinstance(speakers_spec, str):
         speakers_spec = speakers_spec.strip()
-        print("NOCOMMIT", speakers_spec, speakers_spec and (speakers_spec == "*"), _get_db_speaker_names())
+        print("NOCOMMIT", speakers_spec, speakers_spec and (speakers_spec == "*"), _get_db_speaker_names(qdrant_client,qdrant_collection))
         if speakers_spec:
             if speakers_spec == "*":
                 # Wildcard: all speakers
-                speakers_spec = list(_get_db_speaker_names())
+                speakers_spec = _get_db_speaker_names(qdrant_client,qdrant_collection)
             elif speakers_spec[0] in "[{":
                 try:
                     speakers_spec = json.loads(speakers_spec)
@@ -470,7 +403,7 @@ def check_speaker_specification(speakers_spec, cursor=None):
     speaker_names = []
     for item in speakers_spec:
         if isinstance(item, int):
-            items = [_get_db_speaker_name(item, cursor)]
+            items = [_get_db_speaker_name(item, qdrant_client, qdrant_collection)]
         
         elif isinstance(item, dict):
             # Should we really keep this format ?
@@ -481,7 +414,7 @@ def check_speaker_specification(speakers_spec, cursor=None):
         
         elif isinstance(item, str):
             if all_speaker_names is None:
-                all_speaker_names = _get_db_speaker_names(cursor)
+                all_speaker_names = _get_db_speaker_names(qdrant_client, qdrant_collection)
             if item not in all_speaker_names:
                 raise ValueError(f"Unknown speaker name '{item}'")
             items = [item]
@@ -515,7 +448,7 @@ def speaker_identify_given_diarization(
         options (dict): optional options (e.g. {"min_similarity": 0.25, "limit_duration": 60})
     """
 
-    speaker_names = check_speaker_specification(speakers_spec)
+    speaker_names = check_speaker_specification(speakers_spec, qdrant_client, qdrant_collection)
 
     if not speaker_names:
         return diarization

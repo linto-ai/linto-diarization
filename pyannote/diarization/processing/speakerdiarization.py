@@ -30,8 +30,8 @@ class SpeakerDiarization:
         device=None,
         num_threads=4,
         tolerated_silence=0,
-        qdrant_client = None,
-        qdrant_collection=None,
+        qdrant_client= None,
+        qdrant_collection= None,
     ):
         """
         Speaker Diarization class
@@ -202,7 +202,7 @@ class SpeakerDiarization:
         speaker_names = None,
     ):
         # Early check on speaker names
-        speaker_names = check_speaker_specification(speaker_names)
+        speaker_names = check_speaker_specification(speaker_names, self.qdrant_client, self.qdrant_collection)
 
         # If we run both speaker diarization and speaker identification, we need to save the file
         if speaker_names and isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):

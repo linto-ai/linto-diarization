@@ -3,10 +3,10 @@ import torch
 from qdrant_client import QdrantClient
 
 # Initialize Qdrant Client
-qdrant_host = os.getenv("QDRANT_HOST", "qdrant")
-qdrant_port = os.getenv("QDRANT_PORT", "6333")
-qdrant_collection = os.getenv("QDRANT_COLLECTION_NAME", "speaker_embeddings")
-qdrant_client = QdrantClient(url=f"http://{qdrant_host}:{qdrant_port}")  # Replace with your Qdrant URL
+qdrant_host = os.getenv("QDRANT_HOST")
+qdrant_port = os.getenv("QDRANT_PORT")
+qdrant_collection = os.getenv("QDRANT_COLLECTION_NAME")
+qdrant_client = QdrantClient(url=f"http://{qdrant_host}:{qdrant_port}") if (qdrant_host and qdrant_port) else None
 
 device = os.environ.get("DEVICE")
 if device is None:
