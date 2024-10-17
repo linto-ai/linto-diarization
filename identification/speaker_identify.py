@@ -30,10 +30,6 @@ _embedding_model = None
 
 # Constants (that could be env variables)
 _FOLDER_WAV = os.environ.get("SPEAKER_SAMPLES_FOLDER", "/opt/speaker_samples")
-_FOLDER_INTERNAL = os.environ.get("SPEAKER_PRECOMPUTED_FOLDER", "/opt/speaker_precomputed")
-
-_FILE_DATABASE = f"{_FOLDER_INTERNAL}/speakers_database"
-
 _UNKNOWN = "<<UNKNOWN>>"
 
 
