@@ -6,6 +6,7 @@ import glob
 import subprocess
 import json
 import werkzeug
+import memory_tempfile
 from collections import defaultdict
 from tqdm import tqdm
 from qdrant_client.http.models import VectorParams, Distance, PointStruct
@@ -23,7 +24,7 @@ class SpeakerIdentifier:
     _can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER", "1").lower() in ["true", "1", "yes"]
     _UNKNOWN = "<<UNKNOWN>>"
 
-    def __init__(self, qdrant_client=None, qdrant_collection=None, device=None, log=None):
+    def __init__(self, device=None, log=None):
         self.device = device or self._get_device()
         self.qdrant_host = os.getenv("QDRANT_HOST")
         self.qdrant_port = os.getenv("QDRANT_PORT")
@@ -32,6 +33,7 @@ class SpeakerIdentifier:
         self._embedding_model = None
         self.log = log
 
+    @staticmethod
     def _get_device():
         if torch.cuda.is_available():
             return "cuda"
@@ -187,10 +189,29 @@ class SpeakerIdentifier:
         return self._embedding_model.encode_batch(audio)
 
 
-    def _get_db_speaker_names(self):
+    def _get_db_speaker_names(self, batch_size=100):
+        all_points = []
+        offset = None  # Start without any offset
         
-        response = self.qdrant_client.scroll(collection_name=self.qdrant_collection,with_payload=True)
-        return [point.payload.get("person") for point in response[0]]
+        while True:
+            # Scroll request with batch_size
+            response, next_offset = self.qdrant_client.scroll(
+                collection_name=self.qdrant_collection,
+                offset=offset,  # Use offset to get the next batch
+                limit=batch_size,
+                with_payload=True,
+            )
+            
+            all_points.extend(response)  # Collect the points
+
+            # Break the loop if no more points are available
+            if next_offset is None:
+                break
+
+            # Update the offset for the next iteration
+            offset = next_offset
+
+        return [point.payload.get("person") for point in all_points]
 
 
     def _get_db_speaker_name(self,speaker_id):
@@ -317,7 +338,7 @@ class SpeakerIdentifier:
             
             # Use the similarity score returned by Qdrant
             score = result.score  # Directly get the similarity score from the result
-            if score >= min_similarity:
+            if (score >= min_similarity) and (speaker_name in speaker_names):
                 votes[speaker_name] += score
 
 
