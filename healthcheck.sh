@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 set -eax
+
 # Put last healthcheck logs in an file (You might persist this for healthcheck failures analysis as the container is ephemeral)
 # Otherwise healthcheck logs are found in docker inspect <container_id>
-
 exec > /tmp/healthcheck.log 2>&1
 
 if [ "$SERVICE_MODE" = "http" ]
