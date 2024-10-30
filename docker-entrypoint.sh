@@ -22,6 +22,16 @@ check_gpu_availability() {
 
 }
 
+# Wait for Qdrant to be available
+wait_for_qdrant() {
+    echo "Waiting for Qdrant to be reachable..."
+    /usr/src/app/wait-for-it.sh "${QDRANT_HOST}:${QDRANT_PORT}" --timeout=20 --strict -- echo "Qdrant is up"
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Qdrant service not reachable at ${QDRANT_HOST}:${QDRANT_PORT}"
+        exit 1
+    fi
+}
+
 run_http_server() {
     echo "HTTP server Mode"
     python http_server/ingress.py --debug
@@ -58,6 +68,7 @@ run_celery_worker() {
 
 # Main logic
 check_gpu_availability
+wait_for_qdrant
 
 if [ -z "$SERVICE_MODE" ]; then
     echo "ERROR: Must specify a serving mode: [ http | task ]"

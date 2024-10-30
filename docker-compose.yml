@@ -20,8 +20,12 @@ services:
       - QDRANT_PORT
       - QDRANT_COLLECTION_NAME
       - SERVICE_MODE
+      - SERVICE_NAME
+      - SERVICES_BROKER
+      - CONCURRENCY
     volumes:
-      - ./data/speakers_samples:/opt/speaker_samples
+      - ./data/speakers_samples:/opt/speaker_samples # Reference Speaker samples 
+      - ./data/test_samples:/opt/audio # Test audio file (Celery task mode)
     depends_on:
       - qdrant  # Ensure Qdrant starts before the app
     deploy:
