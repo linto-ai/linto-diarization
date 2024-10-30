@@ -18,7 +18,7 @@ sys.path.append(
     )
 )
 
-from identification.speaker_identification import SpeakerIdentifier
+from identification.speaker_identify import SpeakerIdentifier
 
 class SpeakerDiarization:
     def __init__(
