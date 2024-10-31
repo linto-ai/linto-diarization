@@ -23,6 +23,8 @@ class SpeakerIdentifier:
     _FOLDER_WAV = os.environ.get("SPEAKER_SAMPLES_FOLDER", "/opt/speaker_samples")
     _can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER", "1").lower() in ["true", "1", "yes"]
     _UNKNOWN = "<<UNKNOWN>>"
+    _RECREATE_COLLECTION = os.getenv("QDRANT_RECREATE_COLLECTION", "False").lower() in ["true", "1", "yes"]
+
 
     def __init__(self, device=None, log=None):
         self.device = device or self._get_device()
@@ -68,9 +70,17 @@ class SpeakerIdentifier:
         
         # Check if the collection exists
         if self.qdrant_client.collection_exists(collection_name=self.qdrant_collection):
-            if self.log:
-                self.log.info(f"Deleting existing collection: {self.qdrant_collection}")
-            self.qdrant_client.delete_collection(collection_name=self.qdrant_collection)
+            if self._RECREATE_COLLECTION:
+                if self.log:
+                    self.log.info(f"Deleting existing collection: {self.qdrant_collection}")
+                self.qdrant_client.delete_collection(collection_name=self.qdrant_collection)
+            else:
+                if self.log:
+                    self.log.info(f"Using existing collection: {self.qdrant_collection}")
+                speakers = self._get_db_speaker_names()
+                if self.log:
+                    self.log.info(f"Speaker identification initialized with {len(speakers)} speakers")
+                return
 
         # Create collection
         if self.log:

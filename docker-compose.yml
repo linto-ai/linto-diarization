@@ -13,12 +13,15 @@ services:
       dockerfile: pyannote/Dockerfile
     container_name: diarization_app
     shm_size: '1gb'
+    stdin_open: true
+    tty: true     
     ports :
       - 8080:80
     environment:
       - QDRANT_HOST
       - QDRANT_PORT
       - QDRANT_COLLECTION_NAME
+      - QDRANT_RECREATE_COLLECTION
       - SERVICE_MODE
       - SERVICE_NAME
       - SERVICES_BROKER
@@ -35,7 +38,3 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
-
-volumes:
-  qdrant_storage:
