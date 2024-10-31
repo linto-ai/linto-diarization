@@ -1,3 +1,6 @@
+# 2.0.1
+- Use Qdrant for efficient speaker identification
+
 # 2.0.0
 - Add speaker identification
 
