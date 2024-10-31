@@ -20,23 +20,38 @@ In what follow, you can replace "pyannote" by "simple" or "pybk" to try other me
 
 ### HTTP Server
 
-1. If needed, build docker image 
+1. If you want to use speaker identification, make sure Qdrant is running. You can start Qdrant using the following Docker command:
+
+```bash
+docker run 
+    -p 6333:6333 \  # Qdrant default port
+    -v ./qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+2. If needed, build docker image 
 
 ```bash
 docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
 ```
 
-2. Launch docker container (and keep it running)
+3. Launch docker container (and keep it running)
 
 ```bash
 docker run -it --rm \
     -p 8080:80 \
     --shm-size=1gb --tmpfs /run/user/0 \
     --env SERVICE_MODE=http \
+    --env QDRANT_HOST=localhost \
+    --env QDRANT_PORT=6333 \
+    --env QDRANT_COLLECTION_NAME=speaker_embeddings \
+    --env QDRANT_RECREATE_COLLECTION=true \
+    --env SERVICE_MODE=http \
     linto-diarization-pyannote:latest
 ```
+Alternatively, you can use docker-compose.
 
-3. Open the swagger in a browser: [http://localhost:8080/docs](http://localhost:8080/docs)
+4. Open the swagger in a browser: [http://localhost:8080/docs](http://localhost:8080/docs)
    Unfold `/diarization` route and click "Try it out". Then
    - Choose a file
    - Specify either `speaker_count` (Fixed number of speaker) or `max_speaker` (Max number of speakers)
@@ -52,7 +67,16 @@ In the following we assume we want to test on an audio that is in `$HOME/test.wa
 docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
 ```
 
-2. Run Redis server
+2. If you want to use speaker identification, make sure Qdrant is running. You can start Qdrant using the following Docker command:
+
+```bash
+docker run 
+    -p 6333:6333 \  # Qdrant default port
+    -v ./qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+3. Run Redis server
 
 ```bash
 docker run -it --rm \
@@ -61,7 +85,7 @@ docker run -it --rm \
     redis-server /etc/redis-stack.conf --protected-mode no --bind 0.0.0.0 --loglevel debug
 ```
 
-3. Launch docker container, attaching the volume where is the audio file on which you will test
+4. Launch docker container, attaching the volume where is the audio file on which you will test
 
 ```bash
 docker run -it --rm \
@@ -71,10 +95,14 @@ docker run -it --rm \
     --env SERVICES_BROKER=redis://172.17.0.1:6379 \
     --env BROKER_PASS= \
     --env CONCURRENCY=2 \
+    --env QDRANT_HOST=localhost \
+    --env QDRANT_PORT=6333 \
+    --env QDRANT_COLLECTION_NAME=speaker_embeddings \
+    --env QDRANT_RECREATE_COLLECTION=true \
     linto-diarization-pyannote:latest
 ```
 
-3. Testing with a given audio file can be done using python3 (with packages `celery` and `redis` installed).
+5. Testing with a given audio file can be done using python3 (with packages `celery` and `redis` installed).
    For example with the following command for the file `$HOME/test.wav` with 2 speakers
 
 ```bash
