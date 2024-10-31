@@ -134,7 +134,7 @@ class SpeakerIdentifier:
             # Prepare point for Qdrant
             point = PointStruct(
                 id=speaker_idx+1,
-                vector=spk_embed.flatten(),  # Convert to 1D list for Qdrant [[[1, 2, 3, ...]]] -> [1, 2, 3, ...]
+                vector=spk_embed[0].flatten(),  # Convert to 1D list for Qdrant [[[1, 2, 3, ...]]] -> [1, 2, 3, ...]
                 payload={"person": speaker_name.strip()}
             )
 
@@ -344,7 +344,7 @@ class SpeakerIdentifier:
         embedding_audio = self.compute_embedding(audio_selection)
 
         # Search for similar embeddings in Qdrant
-        results = self.qdrant_client.search(self.qdrant_collection, embedding_audio.flatten())
+        results = self.qdrant_client.search(self.qdrant_collection, embedding_audio[0].flatten())
         
         for result in results:
             speaker_name = result.payload["person"]
