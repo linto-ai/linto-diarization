@@ -44,11 +44,18 @@ class SpeakerIdentifier:
         max_duration=60 * 3,
         sample_rate=16_000,
     ):
-        
+        # Check if speaker identification is enabled
         if not self.is_speaker_identification_enabled() :
             if self.log: self.log.info(f"Speaker identification is disabled")
             return
         
+        # Raise error if Qdrant client is not set
+        elif self.qdrant_client is None:
+            raise EnvironmentError(
+                "Qdrant client is not set. Please ensure that the environment variables 'QDRANT_HOST' "
+                "and 'QDRANT_PORT' are set to enable speaker identification."
+            )
+                
         if self._embedding_model is None:
             tic = time.time()
             self._embedding_model = EncoderClassifier.from_hparams(
@@ -78,7 +85,7 @@ class SpeakerIdentifier:
 
         speakers = list(self._get_speaker_names())
         points = []  # List to store points for Qdrant upsert
-        for _,speaker_name in enumerate(tqdm(speakers, desc="Compute ref. speaker embeddings")):
+        for speaker_idx,speaker_name in enumerate(tqdm(speakers, desc="Compute ref. speaker embeddings")):
             audio_files = self._get_speaker_sample_files(speaker_name)
             assert len(audio_files) > 0, f"No audio files found for speaker {speaker_name}"
             
@@ -116,12 +123,12 @@ class SpeakerIdentifier:
             spk_embed = spk_embed.cpu()
             # Prepare point for Qdrant
             point = PointStruct(
-                id=_+1,
-                vector=spk_embed.flatten(),#.numpy().tolist(),  # Convert to list for Qdrant
+                id=speaker_idx+1,
+                vector=spk_embed.flatten(),  # Convert to 1D list for Qdrant [[[1, 2, 3, ...]]] -> [1, 2, 3, ...]
                 payload={"person": speaker_name.strip()}
             )
 
-            points.append(point)  # Append point to the list
+            points.append(point)
         
         # Upsert all points to Qdrant in one go
         if points:
@@ -135,7 +142,7 @@ class SpeakerIdentifier:
 
     # Create a method to check if speaker identification is enabled
     def is_speaker_identification_enabled(self):
-        return self.qdrant_client and self.qdrant_collection and os.path.isdir(self._FOLDER_WAV)
+        return os.path.isdir(self._FOLDER_WAV)
     
     @staticmethod
     def convert_wavfile(wavfile, outfile):
@@ -373,7 +380,6 @@ class SpeakerIdentifier:
         # Read list / dictionary
         if isinstance(speakers_spec, str):
             speakers_spec = speakers_spec.strip()
-            print("NOCOMMIT", speakers_spec, speakers_spec and (speakers_spec == "*"), self._get_db_speaker_names())
             if speakers_spec:
                 if speakers_spec == "*":
                     # Wildcard: all speakers
