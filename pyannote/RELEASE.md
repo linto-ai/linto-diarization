@@ -1,5 +1,6 @@
 # 2.0.1
 - Use Qdrant for efficient speaker identification
+- Update pyannote to 3.3.2 (and speechbrain 1.0.0)
 
 # 2.0.0
 - Add speaker identification
