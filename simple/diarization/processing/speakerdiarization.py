@@ -8,6 +8,7 @@ import json
 import memory_tempfile
 import torch
 import werkzeug
+import warnings
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer"))
 import simple_diarizer
@@ -210,7 +211,8 @@ class SpeakerDiarization:
         self.log.info(f"Starting diarization on file {file_path}")
 
         if speaker_count is None and max_speaker is None:
-            raise Exception("Either speaker_count or max_speaker must be set")
+            max_speaker = 50 # default value
+            warnings.warn(f"No speaker count nor maximum specified, using default value {max_speaker=}")
 
         try:                       
             result = self.run_simple_diarizer(
