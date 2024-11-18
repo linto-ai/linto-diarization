@@ -232,7 +232,7 @@ Diarization worker accepts requests with the following arguments:
 * `file`: (str) Is the relative path of the file in the shared_folder.
 * `speaker_count`: (int, default None) Fixed number of speakers.
 * `max_speaker`: (int, default None) Max number of speaker if speaker_count=None. 
-* `speaker_names`: (string, optional) List of target speaker names, speaker identification (if speaker samples are provided only). Possible values are
+* `speaker_names`: (string, default None) List of target speaker names, speaker identification (if speaker samples are provided only). Possible values are
   * empty string "": no speaker identification
   * wild card "`*`": speaker identification for all speakers
   * list of speaker names in json format (ex: "`["speaker1", ..., "speakerN"]`") or separated by `|` (ex: "`speaker1|...|speakerN`"): speaker identification for the listed speakers only
