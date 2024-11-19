@@ -54,6 +54,13 @@ or
 ```bash
 docker pull lintoai/linto-diarization-simple
 ```
+For speaker identification, run qdrant :
+```bash
+docker run 
+    -p 6333:6333 \  # Qdrant default port
+    -v ./qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
 
 ### HTTP
 
@@ -73,7 +80,10 @@ An example of .env file is provided in [simple/.envdefault](https://github.com/l
 | `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 | `SPEAKER_SAMPLES_FOLDER` | (default: `/opt/speaker_samples`) Folder where to find audio files for target speakers samples | `/path/to/folder` |
 | `SPEAKER_PRECOMPUTED_FOLDER` | (default: `/opt/speaker_precomputed`) Folder where to store precomputed embeddings of target speakers | `/path/to/folder` |
-
+| `QDRANT_HOST` | Host address of the Qdrant instance | `localhost` |
+| `QDRANT_PORT` | Port number for the Qdrant instance | `6333` |
+| `QDRANT_COLLECTION` | Name of the collection in Qdrant for storing embeddings | `speaker_embeddings` |
+| `QDRANT_RECREATE_COLLECTION` | Recreate collection or use existing one from mounted volume | `true` |
 
 **2- Run the container**
 
@@ -96,13 +106,9 @@ Then the parent folder of the samples must be mounted as a volume in the contain
 docker run ... -v <</path/to/speaker/samples/folder>>:/opt/speaker_samples
 ```
 
-When speaker identification, you can also mount a volume (empty at the beginning) on **`/opt/speaker_precomputed`**
-(or a custom folder set with the `SPEAKER_PRECOMPUTED_FOLDER` environment variable),
-where will be stored the precomputed embeddings of the speakers.
-This can avoid an initialisation time at each new docker run, if the set of target speakers remains the same or just grows.
-```bash
-docker run ... -v <</path/to/precomputed/embeddings/folder>>:/opt/speaker_precomputed
-```
+When speaker identification, if you want to use an existing collection in the volume mounted to the qdrant docker container, you can specify the environment variable `QDRANT_RECREATE_COLLECTION=false`
+This can avoid an initialisation time at each new docker run.
+
 
 You may also want to add ```--gpus all``` to enable GPU capabilitiesn
 and maybe set `CUDA_VISIBLE_DEVICES` if there are several available GPU cards.
@@ -128,6 +134,10 @@ Parameters are the [same as for the HTTP API](#http), with the addition of the f
 | `SERVICE_NAME` | Service's name | `diarization-ml` |
 | `LANGUAGE` | Language code as a BCP-47 code | `en-US` or * or languages separated by "\|" |
 | `MODEL_INFO` | Human readable description of the model | `Multilingual diarization model` |
+| `QDRANT_HOST` | Host address of the Qdrant instance | `localhost` |
+| `QDRANT_PORT` | Port number for the Qdrant instance | `6333` |
+| `QDRANT_COLLECTION` | Name of the collection in Qdrant for storing embeddings | `speaker_embeddings` |
+| `QDRANT_RECREATE_COLLECTION` | Recreate collection or use existing one from mounted volume | `true` |
 
 **2- Fill the docker-compose.yml**
 
@@ -234,7 +244,7 @@ Diarization worker accepts requests with the following arguments:
 * `file`: (str) Is the relative path of the file in the shared_folder.
 * `speaker_count`: (int, default None) Fixed number of speakers.
 * `max_speaker`: (int, default None) Max number of speaker if speaker_count=None. 
-* `speaker_names`: (string, optional) List of target speaker names, speaker identification (if speaker samples are provided only). Possible values are
+* `speaker_names`: (string, default None) List of target speaker names, speaker identification (if speaker samples are provided only). Possible values are
   * empty string "": no speaker identification
   * wild card "`*`": speaker identification for all speakers
   * list of speaker names in json format (ex: "`["speaker1", ..., "speakerN"]`") or separated by `|` (ex: "`speaker1|...|speakerN`"): speaker identification for the listed speakers only

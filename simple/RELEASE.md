@@ -1,3 +1,7 @@
+# 2.0.1
+- Use Qdrant for efficient speaker identification
+- Specifying max number of speakers is now optional
+
 # 2.0.0
 - Add speaker identification
 

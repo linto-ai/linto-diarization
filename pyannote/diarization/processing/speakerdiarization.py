@@ -17,12 +17,8 @@ sys.path.append(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "identification"
     )
 )
-import identification
-from identification.speaker_identify import (
-    initialize_speaker_identification,
-    check_speaker_specification,
-    speaker_identify_given_diarization,
-)
+
+from identification.speaker_identify import SpeakerIdentifier
 
 class SpeakerDiarization:
     def __init__(
@@ -53,6 +49,7 @@ class SpeakerDiarization:
             + (f" ({num_threads} threads)" if device == "cpu" else "")
         )
         self.tolerated_silence = tolerated_silence
+
         home = os.path.expanduser('~')
 
         model_configuration = "pyannote/speaker-diarization-3.1"
@@ -71,8 +68,9 @@ class SpeakerDiarization:
         self.pipeline = self.pipeline.to(torch.device(device))
         self.num_threads = num_threads
         self.tempfile = None
+        self.speaker_identifier = SpeakerIdentifier(device=device, log=self.log)
 
-        initialize_speaker_identification(self.log)
+        self.speaker_identifier.initialize_speaker_identification()
 
 
     def run_pyannote(self, audioFile, speaker_count, max_speaker):
@@ -198,7 +196,7 @@ class SpeakerDiarization:
         speaker_names = None,
     ):
         # Early check on speaker names
-        speaker_names = check_speaker_specification(speaker_names)
+        speaker_names = self.speaker_identifier.check_speaker_specification(speaker_names)
 
         # If we run both speaker diarization and speaker identification, we need to save the file
         if speaker_names and isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
@@ -219,7 +217,7 @@ class SpeakerDiarization:
             result = self.run_pyannote(
                 file_path, speaker_count=speaker_count, max_speaker=max_speaker
             )
-            result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log)
+            result = self.speaker_identifier.speaker_identify_given_diarization(file_path, result, speaker_names)
             return result
         except Exception as e:
             self.log.error(e)
