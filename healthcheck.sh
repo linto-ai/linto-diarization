@@ -22,7 +22,7 @@ else
     fi
 
     # Check if GPU is in use
-    has_gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | grep -v '^0$')
+    has_gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | grep -v '^0$' | wc -l)
     if [ "$has_gpu" -gt 0 ]; then
         echo "HealthCheck PASS: GPU is being utilized, marking service as healthy."
         exit 0
