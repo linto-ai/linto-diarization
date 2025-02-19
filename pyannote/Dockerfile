@@ -8,6 +8,7 @@ RUN apt-get update &&\
     wget \
     unzip \
     libsndfile1 \
+    gosu \
     && \
     apt-get clean
    

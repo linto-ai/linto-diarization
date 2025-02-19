@@ -6,7 +6,7 @@ WORKDIR /usr/src/app
 
 # Install python and other dependencies
 RUN apt-get update && \
-    apt-get install -y python3.10 python3-pip ffmpeg git sqlite3 libsqlite3-dev && \
+    apt-get install -y python3.10 python3-pip ffmpeg git sqlite3 libsqlite3-dev gosu && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     ln -s /usr/bin/python3.10 /usr/bin/python

@@ -9,6 +9,7 @@ RUN apt-get update &&\
     software-properties-common \
     wget \
     curl \
+    gosu \
     lsb-release && \
     apt-get clean
 
