@@ -20,9 +20,11 @@ COPY pyannote/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download pyannote models
+ENV HOME=/var/www
 RUN mkdir -p $HOME/.cache
 RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/pyannote-3.1.zip
 RUN unzip pyannote-3.1.zip -d $HOME/.cache/
+RUN chmod -R ug+rwX $HOME
 RUN rm pyannote-3.1.zip
 
 # Install sources to serve API
