@@ -20,9 +20,9 @@ COPY pyannote/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download pyannote models
-RUN mkdir -p $HOME/.cache
+RUN mkdir -p /opt/models
 RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/pyannote-3.1.zip
-RUN unzip pyannote-3.1.zip -d $HOME/.cache/
+RUN unzip pyannote-3.1.zip -d /opt/models
 RUN rm pyannote-3.1.zip
 
 # Install sources to serve API
@@ -38,6 +38,7 @@ COPY pyannote/RELEASE.md ./
 RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed 's/#//' | sed 's/ //')
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
+ENV PYANNOTE_CACHE=/opt/models/torch/pyannote
 
 HEALTHCHECK CMD ./healthcheck.sh
 

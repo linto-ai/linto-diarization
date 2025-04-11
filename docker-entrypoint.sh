@@ -46,7 +46,7 @@ function setup_user() {
     if [ ! -d "$USER_HOME" ]; then
         echo "Ensure home directory exists: $USER_HOME"
         mkdir -p "$USER_HOME"
-        chown "$USER_NAME:$GROUP_NAME" "$USER_HOME"
+        chown -R "$USER_NAME:$GROUP_NAME" "$USER_HOME"
     fi
 
     # Grant full permissions to the user on their home directory
@@ -55,8 +55,7 @@ function setup_user() {
 
      # Grant full permissions to /opt for user $USER_NAME
     echo "Granting full permissions to $USER_NAME on /opt"
-    chmod g+rwx /opt
-    usermod -aG $(stat -c %G /opt) "$USER_NAME"
+    chown -R "$USER_NAME:$GROUP_NAME" /opt
 }
 
 check_gpu_availability() {
