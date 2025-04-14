@@ -1,3 +1,6 @@
+# 2.0.2
+- Set default runtime user to www-data
+
 # 2.0.1
 - Use Qdrant for efficient speaker identification
 - Specifying max number of speakers is now optional

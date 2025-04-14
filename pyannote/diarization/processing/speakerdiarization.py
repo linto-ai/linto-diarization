@@ -50,14 +50,12 @@ class SpeakerDiarization:
         )
         self.tolerated_silence = tolerated_silence
 
-        home = os.path.expanduser('~')
-
         model_configuration = "pyannote/speaker-diarization-3.1"
         local_cache_yaml = {
             "pyannote/speaker-diarization-2.1" : "torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
             "pyannote/speaker-diarization-3.1" : "models--pyannote--speaker-diarization-3.1/snapshots/19c7c42a5047c3e982102ee1eb687ed866b4d193/config.yaml",
         }
-        cache_parent_folder = os.path.join(home, ".cache")
+        cache_parent_folder = "/opt/models"
         model_configuration = os.path.join(cache_parent_folder, local_cache_yaml[model_configuration])
 
         self.pipeline = Pipeline.from_pretrained(
