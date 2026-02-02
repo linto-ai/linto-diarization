@@ -1,4 +1,16 @@
-def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFiles) {
+def notifyLintoDeploy(service_name, tag, commit_sha) {
+    echo "Notifying linto-deploy for ${service_name}:${tag} (commit: ${commit_sha})..."
+    withCredentials([usernamePassword(
+        credentialsId: 'linto-deploy-bot',
+        usernameVariable: 'GITHUB_APP',
+        passwordVariable: 'GITHUB_TOKEN'
+    )]) {
+        writeFile file: 'payload.json', text: "{\"event_type\":\"update-service\",\"client_payload\":{\"service\":\"${service_name}\",\"tag\":\"${tag}\",\"commit_sha\":\"${commit_sha}\"}}"
+        sh 'curl -s -X POST -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/vnd.github.v3+json" -d @payload.json https://api.github.com/repos/linto-ai/linto-deploy/dispatches'
+    }
+}
+
+def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFiles, commit_sha) {
     if (changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('http_server') || changedFiles.contains('document') || changedFiles.contains('docker-entrypoint.sh') || changedFiles.contains('healthcheck.sh') || changedFiles.contains('wait-for-it.sh')) {
         echo "Building Dockerfile for ${image_name} with version ${version} (using ${dockerfilePath})"
 
@@ -13,6 +25,12 @@ def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFil
                     image.push(version)
                 }
             }
+
+            // Notify linto-deploy after successful push (only for master branch)
+            if (version != 'latest-unstable') {
+                def service_name = image_name.replace('lintoai/', '')
+                notifyLintoDeploy(service_name, version, commit_sha)
+            }
         }
     }
 }
@@ -24,7 +42,7 @@ pipeline {
         DOCKER_HUB_REPO_PYANNOTE = "lintoai/linto-diarization-pyannote"
         DOCKER_HUB_REPO_SIMPLE = "lintoai/linto-diarization-simple"
     }
-    
+
     stages {
         stage('Docker build for master branch') {
             when {
@@ -34,26 +52,27 @@ pipeline {
                 echo 'Publishing latest'
                 script {
                     def changedFiles = sh(returnStdout: true, script: 'git diff --name-only HEAD^ HEAD').trim()
+                    def commit_sha = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
                     echo "My changed files: ${changedFiles}"
 
                     // // DEPRECATED
                     // version = sh(
-                    //     returnStdout: true, 
+                    //     returnStdout: true,
                     //     script: "awk -v RS='' '/#/ {print; exit}' pybk/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     // ).trim()
-                    // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles)
+                    // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles, commit_sha)
 
                     version = sh(
-                        returnStdout: true, 
+                        returnStdout: true,
                         script: "awk -v RS='' '/#/ {print; exit}' simple/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
-                    buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles)
+                    buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles, commit_sha)
 
                     version = sh(
-                        returnStdout: true, 
+                        returnStdout: true,
                         script: "awk -v RS='' '/#/ {print; exit}' pyannote/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
-                    buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles)
+                    buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles, commit_sha)
                 }
             }
         }
@@ -67,12 +86,12 @@ pipeline {
                 script {
                     def changedFiles = sh(returnStdout: true, script: 'git diff --name-only HEAD^ HEAD').trim()
                     echo "My changed files: ${changedFiles}"
-                    
+
                     version = 'latest-unstable'
 
-                    // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles) // DEPRECATED
-                    buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles)
-                    buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles)
+                    // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles, '') // DEPRECATED
+                    buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles, '')
+                    buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles, '')
                 }
             }
         }
