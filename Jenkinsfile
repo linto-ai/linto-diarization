@@ -95,5 +95,23 @@ pipeline {
                 }
             }
         }
+
+        // Temporary stage: build pyannote slim image for testing
+        // TODO: Remove this stage once slim is validated and replace the main Dockerfile
+        stage('Docker build pyannote-slim (slim-image branch)') {
+            when {
+                branch 'feature/slim-image'
+            }
+            steps {
+                echo 'Building pyannote slim image for testing'
+                script {
+                    def image = docker.build(env.DOCKER_HUB_REPO_PYANNOTE, "-f pyannote/Dockerfile.slim .")
+
+                    docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
+                        image.push('slim')
+                    }
+                }
+            }
+        }
     }
 }
