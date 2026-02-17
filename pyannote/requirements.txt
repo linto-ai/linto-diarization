@@ -8,6 +8,7 @@ pyyaml>=5.4.1
 supervisor>=4.2.2
 pyannote.audio==3.3.2
 speechbrain==1.0.0
+requests>=2.28.0
 torchaudio==2.4.1
 memory-tempfile==2.2.3
 # Version 2 of numpy breaks pyannote 3.1.1 (use of np.NaN instead of np.nan)
