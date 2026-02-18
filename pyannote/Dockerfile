@@ -1,17 +1,19 @@
-FROM python:3.10
+FROM python:3.10-slim
 LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com"
 
 RUN apt-get update &&\
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     curl \
     ffmpeg \
     wget \
     unzip \
     libsndfile1 \
     gosu \
+    procps \
     && \
-    apt-get clean
-   
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Define the main folder
 WORKDIR /usr/src/app
 
