@@ -1,3 +1,8 @@
+# 2.1.0
+- Switch default Docker image to python:3.10-slim for lighter footprint
+- Pin huggingface-hub<0.25 for pyannote.audio 3.3.2 compatibility
+- Add explicit requests dependency
+
 # 2.0.2
 - Update cache folder to /opt/models
 - Set default runtime user to www-data
