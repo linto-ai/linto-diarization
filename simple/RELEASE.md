@@ -1,3 +1,11 @@
+# 2.1.0
+- Multi-collection speaker identification: `diarization_task` accepts a JSON object speaker specification ({collections, speakers, minSimilarity})
+- New Celery tasks for runtime enrollment: voiceprint_compute_task, speaker_upsert_task, speaker_delete_task, collection_drop_task
+- Service registration exposes speaker identification capability ({speaker_identification, model_id, dim})
+- Speaker identification is now enabled iff QDRANT_HOST is set; filesystem enrollment (SPEAKER_SAMPLES_FOLDER + QDRANT_COLLECTION_NAME) is deprecated but still supported
+- Pin the HuggingFace revision of the embedding model
+- New environment variables: QDRANT_API_KEY, SPEAKER_ID_MIN_SIMILARITY, SPEAKER_ID_MAX_ENROLL_DURATION, SPEAKER_ID_MIN_ENROLL_DURATION
+
 # 2.0.2
 - Set default runtime user to www-data
 

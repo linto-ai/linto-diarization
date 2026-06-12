@@ -49,7 +49,14 @@ def transcribe():
             max_speaker = request.form.get("max_speaker", None)
             if max_speaker is not None:
                 max_speaker = int(max_speaker)
-            speaker_names = request.form.get('speaker_names')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]  
+            speaker_names = request.form.get('speaker_names')            #speakers input will be ["jean-pierre","abdel","ilyes-rebai","samir-tanfous"]
+            # A JSON object means a multi-collection speaker identification specification:
+            # {"collections": [...], "speakers": "*" | [speaker_ids], "minSimilarity": float | null}
+            if speaker_names and speaker_names.strip().startswith("{"):
+                try:
+                    speaker_names = json.loads(speaker_names)
+                except Exception as err:
+                    raise ValueError(f"Invalid JSON in speaker_names field: {err}")
             start_t = time()
         else:
             raise ValueError("No audio file was uploaded")

@@ -1,4 +1,5 @@
 """The register Module allow registering and unregistering operations within the service stack for service discovery purposes"""
+import json
 import os
 import sys
 import uuid
@@ -7,6 +8,8 @@ from time import time
 from xmlrpc.client import ResponseError
 
 import redis
+
+from identification.spkid_core import MODEL_DIM, MODEL_ID
 from redis.commands.json.path import Path
 from redis.commands.search.field import NumericField, TextField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
@@ -75,6 +78,16 @@ def queue() -> str:
 
 
 def service_info() -> dict:
+    # Speaker identification is enabled iff Qdrant is configured
+    # (docker-entrypoint.sh wait_for_qdrant guarantees reachability at boot)
+    speaker_id_enabled = bool(os.environ.get("QDRANT_HOST"))
+    info = json.dumps(
+        {
+            "speaker_identification": speaker_id_enabled,
+            "model_id": MODEL_ID,
+            "dim": MODEL_DIM,
+        }
+    )
     return {
         "service_name": service_name,
         "host_name": host_name,
@@ -82,7 +95,7 @@ def service_info() -> dict:
         "service_language": service_lang,
         "queue_name": queue(),
         "version": os.environ.get("VERSION", "unknown"),
-        "info": os.environ.get("MODEL_INFO", "unknown"),
+        "info": info,
         "last_alive": int(time()),
         "concurrency": int(os.environ.get("CONCURRENCY", 2)),
     }

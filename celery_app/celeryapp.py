@@ -23,6 +23,10 @@ celery.conf.update(
     {
         "task_routes": {
             "diarization_task": {"queue": "diarization"},
+            "voiceprint_compute_task": {"queue": "diarization"},
+            "speaker_upsert_task": {"queue": "diarization"},
+            "speaker_delete_task": {"queue": "diarization"},
+            "collection_drop_task": {"queue": "diarization"},
         }
     }
 )
