@@ -78,16 +78,29 @@ def queue() -> str:
 
 
 def service_info() -> dict:
+    # The info field keeps its historical role (the MODEL_INFO locale label
+    # shown in the UI, e.g. {"en": "Yes", "fr": "Oui"}) and is enriched with the
+    # speaker identification capability so service discovery can route to it.
+    # Merge (do not replace) so the diarization option label is preserved.
+    info_obj = {}
+    model_info_raw = os.environ.get("MODEL_INFO")
+    if model_info_raw:
+        try:
+            parsed = json.loads(model_info_raw)
+            if isinstance(parsed, dict):
+                info_obj = parsed
+        except (ValueError, TypeError):
+            pass
     # Speaker identification is enabled iff Qdrant is configured
     # (docker-entrypoint.sh wait_for_qdrant guarantees reachability at boot)
-    speaker_id_enabled = bool(os.environ.get("QDRANT_HOST"))
-    info = json.dumps(
+    info_obj.update(
         {
-            "speaker_identification": speaker_id_enabled,
+            "speaker_identification": bool(os.environ.get("QDRANT_HOST")),
             "model_id": MODEL_ID,
             "dim": MODEL_DIM,
         }
     )
+    info = json.dumps(info_obj)
     return {
         "service_name": service_name,
         "host_name": host_name,
