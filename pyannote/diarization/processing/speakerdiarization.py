@@ -10,7 +10,7 @@ import tqdm
 import torch
 import torchaudio
 import werkzeug
-from pyannote.audio import Audio, Pipeline
+from pyannote.audio import Pipeline
 
 sys.path.append(
     os.path.join(
@@ -50,18 +50,25 @@ class SpeakerDiarization:
         )
         self.tolerated_silence = tolerated_silence
 
-        model_configuration = "pyannote/speaker-diarization-3.1"
-        local_cache_yaml = {
-            "pyannote/speaker-diarization-2.1" : "torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
-            "pyannote/speaker-diarization-3.1" : "models--pyannote--speaker-diarization-3.1/snapshots/19c7c42a5047c3e982102ee1eb687ed866b4d193/config.yaml",
-        }
-        cache_parent_folder = "/opt/models"
-        model_configuration = os.path.join(cache_parent_folder, local_cache_yaml[model_configuration])
+        # Kept for reference (pyannote.audio <= 3.x, no longer used): these mapped a
+        # model name to a local Hugging Face cache snapshot config.yaml under /opt/models.
+        # model_configuration = "pyannote/speaker-diarization-3.1"
+        # local_cache_yaml = {
+        #     "pyannote/speaker-diarization-2.1" : "torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
+        #     "pyannote/speaker-diarization-3.1" : "models--pyannote--speaker-diarization-3.1/snapshots/19c7c42a5047c3e982102ee1eb687ed866b4d193/config.yaml",
+        # }
+        # cache_parent_folder = "/opt/models"
+        # model_configuration = os.path.join(cache_parent_folder, local_cache_yaml[model_configuration])
 
-        self.pipeline = Pipeline.from_pretrained(
-            model_configuration,
-            cache_dir=cache_parent_folder
+        # pyannote.audio 4.x stores the pipeline and its models together in a single
+        # directory (config.yaml + embedding/, plda/, segmentation/ subfolders), so it
+        # is loaded by pointing at that local folder (no Hugging Face cache layout, no
+        # token needed for offline use). The model is fetched at build time (see Dockerfile).
+        model_configuration = os.environ.get(
+            "PYANNOTE_MODEL", "/opt/models/speaker-diarization-community-1"
         )
+
+        self.pipeline = Pipeline.from_pretrained(model_configuration)
 
         self.pipeline = self.pipeline.to(torch.device(device))
         self.num_threads = num_threads
@@ -139,6 +146,11 @@ class SpeakerDiarization:
             diarization = self.pipeline(audioFile, num_speakers=speaker_count, hook=ProgressBarHook())
         else:
             diarization = self.pipeline(audioFile, min_speakers=1, max_speakers=max_speaker, hook=ProgressBarHook())
+
+        # pyannote.audio 4.x returns a DiarizeOutput wrapper; the speaker diarization
+        # Annotation (including overlapping speech) is on its .speaker_diarization attribute.
+        # Fall back to the object itself for the legacy Annotation return type (<= 3.x).
+        diarization = getattr(diarization, "speaker_diarization", diarization)
 
         # Remove small silences inside speaker turns
         if self.tolerated_silence:
