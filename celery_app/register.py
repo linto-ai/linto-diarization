@@ -1,4 +1,5 @@
 """The register Module allow registering and unregistering operations within the service stack for service discovery purposes"""
+import json
 import os
 import sys
 import uuid
@@ -7,6 +8,8 @@ from time import time
 from xmlrpc.client import ResponseError
 
 import redis
+
+from identification.spkid_core import MODEL_DIM, MODEL_ID
 from redis.commands.json.path import Path
 from redis.commands.search.field import NumericField, TextField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
@@ -75,6 +78,29 @@ def queue() -> str:
 
 
 def service_info() -> dict:
+    # The info field keeps its historical role (the MODEL_INFO locale label
+    # shown in the UI, e.g. {"en": "Yes", "fr": "Oui"}) and is enriched with the
+    # speaker identification capability so service discovery can route to it.
+    # Merge (do not replace) so the diarization option label is preserved.
+    info_obj = {}
+    model_info_raw = os.environ.get("MODEL_INFO")
+    if model_info_raw:
+        try:
+            parsed = json.loads(model_info_raw)
+            if isinstance(parsed, dict):
+                info_obj = parsed
+        except (ValueError, TypeError):
+            pass
+    # Speaker identification is enabled iff Qdrant is configured
+    # (docker-entrypoint.sh wait_for_qdrant guarantees reachability at boot)
+    info_obj.update(
+        {
+            "speaker_identification": bool(os.environ.get("QDRANT_HOST")),
+            "model_id": MODEL_ID,
+            "dim": MODEL_DIM,
+        }
+    )
+    info = json.dumps(info_obj)
     return {
         "service_name": service_name,
         "host_name": host_name,
@@ -82,7 +108,7 @@ def service_info() -> dict:
         "service_language": service_lang,
         "queue_name": queue(),
         "version": os.environ.get("VERSION", "unknown"),
-        "info": os.environ.get("MODEL_INFO", "unknown"),
+        "info": info,
         "last_alive": int(time()),
         "concurrency": int(os.environ.get("CONCURRENCY", 2)),
     }
