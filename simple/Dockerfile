@@ -1,5 +1,5 @@
 FROM python:3.10
-LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com"
+LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com, dlaine@linagora.com"
 
 # Re-Sets work directory (not sure if this is necessary)
 WORKDIR /usr/src/app
