@@ -219,3 +219,9 @@ print(worker.send_task('diarization_task', (os.environ['HOME']+'/test.wav', 2, N
 
 ## License
 This project is developped under the AGPLv3 License (see LICENSE).
+
+The diarization backends bundle third-party pretrained models distributed under their
+own licenses. In particular, the PyAnnote backend uses
+[pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+(licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)); see
+[pyannote/README.md](pyannote/README.md#acknowlegment) for attribution details.

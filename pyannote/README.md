@@ -268,3 +268,9 @@ This project is developped under the AGPLv3 License (see LICENSE).
 ## Acknowlegment.
 
 * [PyAnnote](https://github.com/pyannote/pyannote-audio) diarization framework (License MIT).
+* Diarization model [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+  by Hervé Bredin, Alexis Plaquet and the pyannote team, licensed under
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+  The model weights distributed with this image (fetched at build time from `dl.linto.ai`)
+  are a repackaging of the original repository files for offline use; the weights themselves
+  are unmodified. See the bundled `LICENSE` and `NOTICE` files for full attribution and citations.
