@@ -1,6 +1,8 @@
 # 2.3.0
 - Update pyannote.audio to 4.0.4 (and speechbrain 1.1.0)
 - Switch diarization model to pyannote/speaker-diarization-community-1
+- Pre-load audio into memory before diarization, avoiding a per-window re-decode that dominated runtime on long files (RTF 0.068 -> 0.026 on a 50min file, GTX 1080 Ti)
+- Add `PYANNOTE_MODEL` (select the pipeline / model) and `PYANNOTE_SEGMENTATION_STEP` (window overlap vs speed trade-off) environment variables
 
 # 2.2.0
 - Multi-collection speaker identification: `diarization_task` accepts a JSON object speaker specification ({collections, speakers, minSimilarity})

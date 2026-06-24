@@ -71,6 +71,31 @@ class SpeakerDiarization:
         self.pipeline = Pipeline.from_pretrained(model_configuration)
 
         self.pipeline = self.pipeline.to(torch.device(device))
+
+        # Optionally override the segmentation window step, as a ratio of the window
+        # duration (smaller = more window overlap = more embeddings = slower). The
+        # default is whatever the model config specifies (0.1, i.e. 90% overlap);
+        # increasing it trades a little accuracy for a near-proportional speedup of
+        # the dominant embedding stage. The value is read at inference time by the
+        # segmentation Inference, so mutating it here is enough.
+        seg_step = os.environ.get("PYANNOTE_SEGMENTATION_STEP")
+        if seg_step:
+            try:
+                ratio = float(seg_step)
+                if not 0.0 < ratio <= 1.0:
+                    raise ValueError
+            except ValueError:
+                raise RuntimeError(
+                    "PYANNOTE_SEGMENTATION_STEP must be a float in (0, 1], "
+                    f"got {seg_step!r}"
+                )
+            self.pipeline._segmentation.step = ratio * self.pipeline._segmentation.duration
+            self.pipeline.segmentation_step = ratio
+            self.log.info(
+                f"Overriding segmentation step to {ratio} "
+                f"({self.pipeline._segmentation.step:.2f}s window step)"
+            )
+
         self.num_threads = num_threads
         self.tempfile = None
         self.speaker_identifier = SpeakerIdentifier(device=device, log=self.log)
@@ -116,6 +141,11 @@ class SpeakerDiarization:
 
         if isinstance(audioFile, (str, io.IOBase)):
             waveform, sample_rate = torchaudio.load(audioFile)
+            # if waveform.shape[0] > 1:
+            #     waveform = waveform.mean(dim=0, keepdim=True)
+            # if sample_rate != 16000:
+            #     waveform = torchaudio.functional.resample(waveform, sample_rate, 16000)
+            #     sample_rate = 16000
             audioFile = {"waveform": waveform, "sample_rate": sample_rate}
         elif not (isinstance(audioFile, dict) and "waveform" in audioFile):
             raise ValueError(f"Unsupported audio file type {type(audioFile)}")

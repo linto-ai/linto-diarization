@@ -68,6 +68,8 @@ An example of .env file is provided in [pyannote/.envdefault](https://github.com
 | `DEVICE_CLUSTERING` | Device to use for clustering (Same as `DEVICE` by default) | `cpu` \| `cuda` \| `cuda:0` |
 | `DEVICE_IDENTIFICATION` | Device to use for speaker identification, if it is enabled (Same as `DEVICE` by default) | `cpu` \| `cuda` \| `cuda:0` |
 | `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
+| `PYANNOTE_MODEL` | (default: `/opt/models/speaker-diarization-community-1`) Pipeline to load: a local directory baked into the image, or a Hugging Face id (the latter needs network and a HF token) | `/opt/models/speaker-diarization-community-1` \| `pyannote/speaker-diarization-3.1` |
+| `PYANNOTE_SEGMENTATION_STEP` | Segmentation window step, as a ratio of the window duration (smaller = more overlap = more embeddings = slower; default `0.1` = 90% overlap). Raising it speeds up the dominant embedding stage roughly proportionally, at some accuracy cost. Unset = use the model's configured value | `0.1` \| `0.25` \| `0.5` |
 | `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 | `SPEAKER_SAMPLES_FOLDER` | (default: `/opt/speaker_samples`) Folder where to find audio files for target speakers samples | `/path/to/folder` |
 | `SPEAKER_PRECOMPUTED_FOLDER` | (default: `/opt/speaker_precomputed`) Folder where to store precomputed embeddings of target speakers | `/path/to/folder` |
