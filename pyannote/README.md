@@ -5,6 +5,8 @@ and identify some speakers if samples of their voice are provided.
 
 LinTO-diarization can either be used as a standalone diarization service or deployed as a micro-services.
 
+Accuracy, memory usage and processing time of the `pyannote` and `simple` integrations are benchmarked in the [speaker-diarization-benchmark](https://github.com/linagora-labs/speaker-diarization-benchmark) repository.
+
 * [Prerequisites](#pre-requisites)
 * [Deploy](#deploy)
   * [HTTP](#http)

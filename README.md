@@ -11,6 +11,12 @@ The following families of technologies are currently supported (please refer to 
 
 LinTO-diarization can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
+## Benchmark
+
+The [speaker-diarization-benchmark](https://github.com/linagora-labs/speaker-diarization-benchmark)
+repository benchmarks the `pyannote` and `simple` integrations in terms of accuracy
+(Diarization Error Rate), memory usage, and processing time.
+
 ## Speaker identification
 
 Speaker identification matches diarized speakers against reference voiceprints stored in a [Qdrant](https://qdrant.tech/) vector database.
