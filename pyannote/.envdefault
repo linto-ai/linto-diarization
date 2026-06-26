@@ -15,8 +15,16 @@ CONCURRENCY=2
 # Maximum number of threads on CPU
 NUM_THREADS=4
 
-# Qdrant
+# SPEAKER IDENTIFICATION (enabled iff QDRANT_HOST is set)
 QDRANT_HOST=qdrant
 QDRANT_PORT=6333
-QDRANT_COLLECTION_NAME=speaker_embeddings
-QDRANT_RECREATE_COLLECTION=true
+QDRANT_API_KEY=
+SPEAKER_ID_MIN_SIMILARITY=0.5
+SPEAKER_ID_MAX_ENROLL_DURATION=180
+SPEAKER_ID_MIN_ENROLL_DURATION=3
+
+# Legacy filesystem enrollment (deprecated): populate a single collection
+# from SPEAKER_SAMPLES_FOLDER at startup
+# QDRANT_COLLECTION_NAME=speaker_embeddings
+# QDRANT_RECREATE_COLLECTION=true
+# SPEAKER_SAMPLES_FOLDER=/opt/speaker_samples

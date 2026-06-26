@@ -11,6 +11,44 @@ The following families of technologies are currently supported (please refer to 
 
 LinTO-diarization can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
+## Speaker identification
+
+Speaker identification matches diarized speakers against reference voiceprints stored in a [Qdrant](https://qdrant.tech/) vector database.
+It is enabled as soon as `QDRANT_HOST` is set (see `.envdefault` for related variables: `QDRANT_PORT`, `QDRANT_API_KEY`, `SPEAKER_ID_MIN_SIMILARITY`, `SPEAKER_ID_MAX_ENROLL_DURATION`, `SPEAKER_ID_MIN_ENROLL_DURATION`).
+
+### Multi-collection mode (recommended)
+
+Speakers are enrolled at runtime through Celery tasks, into per-organization Qdrant collections named `spkid_{organizationId}_{collectionId}`:
+
+| Task | Arguments | Result |
+|---|---|---|
+| `voiceprint_compute_task` | `audio_files` (paths relative to `/opt/audio`) | `{vector, model_id, dim, duration_used, files_used}` |
+| `speaker_upsert_task` | `collection, speaker_id, name, vector, model_id` | `{status, point_id, created_collection}` |
+| `speaker_delete_task` | `collection, speaker_ids` | `{status, deleted}` |
+| `collection_drop_task` | `collection` | `{status, existed}` |
+
+Identification is then requested per diarization, by passing a JSON object as `speaker_names` (4th argument of `diarization_task`, or form field of `POST /diarization` in HTTP mode):
+
+```json
+{
+  "collections": ["spkid_64ff…_65aa…", "spkid_64ff…_65bb…"],
+  "speakers": "*",
+  "minSimilarity": 0.5
+}
+```
+
+- `collections` (required): Qdrant collections to search;
+- `speakers` (optional, default `"*"`): restrict to a list of enrolled speaker ids (e.g. `["label:65cc…", "user:64dd…"]`);
+- `minSimilarity` (optional): similarity threshold; defaults to `SPEAKER_ID_MIN_SIMILARITY` (0.5).
+
+Identified speakers have their `spk_id` replaced by the enrolled name (with a `spk_id_score` field in `speakers`); unidentified speakers keep their original tag (`spk1`, `spk2`, ...).
+
+### Filesystem mode (deprecated)
+
+The legacy enrollment mode, where reference speaker audio samples are mounted under `/opt/speaker_samples` (`SPEAKER_SAMPLES_FOLDER`) and loaded into a single collection (`QDRANT_COLLECTION_NAME`) at startup, is still supported but deprecated.
+It requires both `SPEAKER_SAMPLES_FOLDER` to exist and `QDRANT_COLLECTION_NAME` to be set.
+In this mode, `speaker_names` is a string: `"*"` (all enrolled speakers), `"speaker1|speaker2"`, or a JSON list of names.
+
 ## Quick test
 
 Below are examples of how to test diarization with "simple_diarizer", on Linux OS with docker installed.

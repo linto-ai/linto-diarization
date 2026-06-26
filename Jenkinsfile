@@ -26,6 +26,10 @@ def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFil
                 }
             }
 
+            if (version == 'latest-unstable') {
+                preprodDeploy(image_name.replace('lintoai/', ''))
+            }
+
             // Notify linto-deploy after successful push (only for master branch)
             if (version != 'latest-unstable') {
                 def service_name = image_name.replace('lintoai/', '')
@@ -35,12 +39,46 @@ def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFil
     }
 }
 
+// Best-effort deploy of a freshly built image to the staging cluster (full CI/CD).
+// SSH host + key come from Jenkins credentials (nothing host-specific in the repo);
+// no-op if those credentials are absent.
+def stagingDeploy(image_name, tag) {
+    try {
+        withCredentials([
+            sshUserPrivateKey(credentialsId: 'staging-deploy-ssh', keyFileVariable: 'SSH_KEY', usernameVariable: 'SSH_USER'),
+            string(credentialsId: 'staging-deploy-host', variable: 'DEPLOY_HOST')
+        ]) {
+            sh "ssh -i \$SSH_KEY -o StrictHostKeyChecking=no \$SSH_USER@\$DEPLOY_HOST 'staging-deploy ${image_name} ${tag}'"
+        }
+    } catch (err) {
+        echo "Staging auto-deploy skipped for ${image_name} (deploy credentials absent): ${err}"
+    }
+}
+
+// Best-effort redeploy of preprod after a latest-unstable push (full CI/CD).
+// SSH host + key come from Jenkins credentials (nothing host-specific in the repo);
+// no-op if those credentials are absent.
+def preprodDeploy(image_name) {
+    try {
+        withCredentials([
+            sshUserPrivateKey(credentialsId: 'preprod-deploy-ssh', keyFileVariable: 'PP_SSH_KEY', usernameVariable: 'PP_SSH_USER'),
+            string(credentialsId: 'preprod-deploy-host', variable: 'PP_DEPLOY_HOST')
+        ]) {
+            sh "ssh -i \$PP_SSH_KEY -o StrictHostKeyChecking=no \$PP_SSH_USER@\$PP_DEPLOY_HOST 'preprod-deploy ${image_name}'"
+        }
+    } catch (err) {
+        echo "Preprod auto-deploy skipped for ${image_name} (deploy credentials absent): ${err}"
+    }
+}
+
 pipeline {
     agent any
     environment {
         // DOCKER_HUB_REPO_PYBK   = "lintoai/linto-diarization-pybk" // DEPRECATED
         DOCKER_HUB_REPO_PYANNOTE = "lintoai/linto-diarization-pyannote"
         DOCKER_HUB_REPO_SIMPLE = "lintoai/linto-diarization-simple"
+        STAGING_REGISTRY_PYANNOTE = "registry.staging.linto.ai/lintoai/linto-diarization-pyannote"
+        STAGING_REGISTRY_CRED = 'staging-registry-credentials'
     }
 
     stages {
@@ -92,6 +130,24 @@ pipeline {
                     // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles, '') // DEPRECATED
                     buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles, '')
                     buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles, '')
+                }
+            }
+        }
+
+        stage('Docker build for staging branches') {
+            when {
+                branch 'staging/*'
+            }
+            steps {
+                echo 'Building staging feature-branch image (pyannote, private registry, never Docker Hub)'
+                script {
+                    def slug = env.BRANCH_NAME.replaceFirst('^staging/', '').replaceAll('[^a-zA-Z0-9]+', '-').toLowerCase()
+                    def tag = "dev-${slug}"
+                    def image = docker.build(env.STAGING_REGISTRY_PYANNOTE, "-f pyannote/Dockerfile .")
+                    docker.withRegistry('https://registry.staging.linto.ai', env.STAGING_REGISTRY_CRED) {
+                        image.push(tag)
+                    }
+                    stagingDeploy('linto-diarization-pyannote', tag)
                 }
             }
         }
