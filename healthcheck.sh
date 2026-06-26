@@ -9,7 +9,7 @@ exec > /tmp/healthcheck.log 2>&1
 if [ "$SERVICE_MODE" = "http" ]
 then
     # HTTP mode healthcheck
-    curl --fail http://localhost:80/healthcheck || exit 1
+    curl --fail http://localhost:${SERVICE_PORT:-80}/healthcheck || exit 1
 else
     # Update last alive
     python -c "from celery_app.register import register; register(False)"

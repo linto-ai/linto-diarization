@@ -11,6 +11,12 @@ The following families of technologies are currently supported (please refer to 
 
 LinTO-diarization can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
+## Benchmark
+
+The [speaker-diarization-benchmark](https://github.com/linagora-labs/speaker-diarization-benchmark)
+repository benchmarks the `pyannote` and `simple` integrations in terms of accuracy
+(Diarization Error Rate), memory usage, and processing time.
+
 ## Speaker identification
 
 Speaker identification matches diarized speakers against reference voiceprints stored in a [Qdrant](https://qdrant.tech/) vector database.
@@ -219,3 +225,9 @@ print(worker.send_task('diarization_task', (os.environ['HOME']+'/test.wav', 2, N
 
 ## License
 This project is developped under the AGPLv3 License (see LICENSE).
+
+The diarization backends bundle third-party pretrained models distributed under their
+own licenses. In particular, the PyAnnote backend uses
+[pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+(licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)); see
+[pyannote/README.md](pyannote/README.md#acknowlegment) for attribution details.
