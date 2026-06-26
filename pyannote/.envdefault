@@ -14,3 +14,27 @@ CONCURRENCY=2
 
 # Maximum number of threads on CPU
 NUM_THREADS=4
+
+# DIARIZATION MODEL
+# Pipeline to load: a local directory baked into the image, or a Hugging Face id
+# (e.g. pyannote/speaker-diarization-3.1, which needs network + a HF token).
+# PYANNOTE_MODEL=/opt/models/speaker-diarization-community-1
+# Segmentation window step, as a ratio of the window duration (smaller = more
+# overlap = more embeddings = slower; default 0.1 = 90% overlap). Raising it (e.g.
+# 0.5) speeds up the dominant embedding stage roughly proportionally, at some
+# accuracy cost. Leave unset to use the model's configured value.
+# PYANNOTE_SEGMENTATION_STEP=0.1
+
+# SPEAKER IDENTIFICATION (enabled iff QDRANT_HOST is set)
+QDRANT_HOST=qdrant
+QDRANT_PORT=6333
+QDRANT_API_KEY=
+SPEAKER_ID_MIN_SIMILARITY=0.5
+SPEAKER_ID_MAX_ENROLL_DURATION=180
+SPEAKER_ID_MIN_ENROLL_DURATION=3
+
+# Legacy filesystem enrollment (deprecated): populate a single collection
+# from SPEAKER_SAMPLES_FOLDER at startup
+# QDRANT_COLLECTION_NAME=speaker_embeddings
+# QDRANT_RECREATE_COLLECTION=true
+# SPEAKER_SAMPLES_FOLDER=/opt/speaker_samples

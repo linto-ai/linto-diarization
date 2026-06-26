@@ -280,7 +280,11 @@ class SpeakerDiarization:
         json["segments"] = _segments
         return json
 
-    def run(self, audioFile, speaker_count: int = None, max_speaker: int = None):
+    def run(self, audioFile, speaker_count: int = None, max_speaker: int = None, **kwargs):
+        # PyBK has no speaker identification (legacy). Accept and ignore extra
+        # keyword arguments (e.g. speaker_names from the shared celery task
+        # signature) so it never raises TypeError if dispatched a speaker-id
+        # request; the identification gating lives in service discovery.
         self.log.debug(f"Starting diarization on file {audioFile}")
         try:
             start_time = time.time()

@@ -11,6 +11,50 @@ The following families of technologies are currently supported (please refer to 
 
 LinTO-diarization can either be used as a standalone transcription service or deployed within a micro-services infrastructure using a message broker connector.
 
+## Benchmark
+
+The [speaker-diarization-benchmark](https://github.com/linagora-labs/speaker-diarization-benchmark)
+repository benchmarks the `pyannote` and `simple` integrations in terms of accuracy
+(Diarization Error Rate), memory usage, and processing time.
+
+## Speaker identification
+
+Speaker identification matches diarized speakers against reference voiceprints stored in a [Qdrant](https://qdrant.tech/) vector database.
+It is enabled as soon as `QDRANT_HOST` is set (see `.envdefault` for related variables: `QDRANT_PORT`, `QDRANT_API_KEY`, `SPEAKER_ID_MIN_SIMILARITY`, `SPEAKER_ID_MAX_ENROLL_DURATION`, `SPEAKER_ID_MIN_ENROLL_DURATION`).
+
+### Multi-collection mode (recommended)
+
+Speakers are enrolled at runtime through Celery tasks, into per-organization Qdrant collections named `spkid_{organizationId}_{collectionId}`:
+
+| Task | Arguments | Result |
+|---|---|---|
+| `voiceprint_compute_task` | `audio_files` (paths relative to `/opt/audio`) | `{vector, model_id, dim, duration_used, files_used}` |
+| `speaker_upsert_task` | `collection, speaker_id, name, vector, model_id` | `{status, point_id, created_collection}` |
+| `speaker_delete_task` | `collection, speaker_ids` | `{status, deleted}` |
+| `collection_drop_task` | `collection` | `{status, existed}` |
+
+Identification is then requested per diarization, by passing a JSON object as `speaker_names` (4th argument of `diarization_task`, or form field of `POST /diarization` in HTTP mode):
+
+```json
+{
+  "collections": ["spkid_64ff…_65aa…", "spkid_64ff…_65bb…"],
+  "speakers": "*",
+  "minSimilarity": 0.5
+}
+```
+
+- `collections` (required): Qdrant collections to search;
+- `speakers` (optional, default `"*"`): restrict to a list of enrolled speaker ids (e.g. `["label:65cc…", "user:64dd…"]`);
+- `minSimilarity` (optional): similarity threshold; defaults to `SPEAKER_ID_MIN_SIMILARITY` (0.5).
+
+Identified speakers have their `spk_id` replaced by the enrolled name (with a `spk_id_score` field in `speakers`); unidentified speakers keep their original tag (`spk1`, `spk2`, ...).
+
+### Filesystem mode (deprecated)
+
+The legacy enrollment mode, where reference speaker audio samples are mounted under `/opt/speaker_samples` (`SPEAKER_SAMPLES_FOLDER`) and loaded into a single collection (`QDRANT_COLLECTION_NAME`) at startup, is still supported but deprecated.
+It requires both `SPEAKER_SAMPLES_FOLDER` to exist and `QDRANT_COLLECTION_NAME` to be set.
+In this mode, `speaker_names` is a string: `"*"` (all enrolled speakers), `"speaker1|speaker2"`, or a JSON list of names.
+
 ## Quick test
 
 Below are examples of how to test diarization with "simple_diarizer", on Linux OS with docker installed.
@@ -20,23 +64,101 @@ In what follow, you can replace "pyannote" by "simple" or "pybk" to try other me
 
 ### HTTP Server
 
-1. If needed, build docker image 
+1. If you want to use speaker identification, make sure Qdrant is running.
+First, create a custom bridge network so the diarization container can communicate with qdrant :
+
+```bash
+docker network create diarization_network
+```
+ You can start Qdrant using the following Docker command:
+
+```bash
+docker run 
+    --name qdrant \
+    --network diarization_network \
+    -p 6333:6333 \  # Qdrant default port
+    -v ./qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+2. If needed, build docker image 
 
 ```bash
 docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
-```
+```  
 
-2. Launch docker container (and keep it running)
+3. Launch docker container (and keep it running)
+
+If you want to enable speaker identification, make sure to mount reference speaker audio samples to `/opt/speaker_samples`.
 
 ```bash
 docker run -it --rm \
+    --name linto-diarization \
+    --network diarization_network \
     -p 8080:80 \
+    -v ./data/speakers_samples:/opt/speaker_samples \ # Reference speaker samples. Enables speaker identification
     --shm-size=1gb --tmpfs /run/user/0 \
+    --env SERVICE_MODE=http \
+    --env QDRANT_HOST=qdrant \ # Only specify if enabling speaker identification
+    --env QDRANT_PORT=6333 \ # Only specify if enabling speaker identification
+    --env QDRANT_COLLECTION_NAME=speaker_embeddings \ # Only specify if enabling speaker identification
+    --env QDRANT_RECREATE_COLLECTION=true \ # Only specify if enabling speaker identification
     --env SERVICE_MODE=http \
     linto-diarization-pyannote:latest
 ```
 
-3. Open the swagger in a browser: [http://localhost:8080/docs](http://localhost:8080/docs)
+Alternatively, you can use docker-compose :
+
+```yaml
+
+services:
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    ports:
+      - "6333:6333"  # Qdrant default port
+    volumes:
+      - ./qdrant_storage:/qdrant/storage:z
+
+  diarization_app: 
+    build: 
+      context : .
+      dockerfile: pyannote/Dockerfile
+    container_name: diarization_app
+    shm_size: '1gb'
+    stdin_open: true
+    tty: true     
+    ports :
+      - 8080:80
+    environment:
+      - QDRANT_HOST
+      - QDRANT_PORT
+      - QDRANT_COLLECTION_NAME
+      - QDRANT_RECREATE_COLLECTION
+      - SERVICE_MODE
+      - SERVICE_NAME
+      - SERVICES_BROKER
+      - CONCURRENCY
+    volumes:
+      - ./data/speakers_samples:/opt/speaker_samples # Reference Speaker samples : This enables speaker identification
+    depends_on:
+      - qdrant  # Ensure Qdrant starts before the app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+```
+
+Run it using this command :
+```bash
+docker compose up
+```  
+
+4. Open the swagger in a browser: [http://localhost:8080/docs](http://localhost:8080/docs)
    Unfold `/diarization` route and click "Try it out". Then
    - Choose a file
    - Specify either `speaker_count` (Fixed number of speaker) or `max_speaker` (Max number of speakers)
@@ -52,7 +174,16 @@ In the following we assume we want to test on an audio that is in `$HOME/test.wa
 docker build . -t linto-diarization-pyannote:latest -f pyannote/Dockerfile
 ```
 
-2. Run Redis server
+2. If you want to use speaker identification, make sure Qdrant is running. You can start Qdrant using the following Docker command:
+
+```bash
+docker run 
+    -p 6333:6333 \  # Qdrant default port
+    -v ./qdrant_storage:/qdrant/storage:z \
+    qdrant/qdrant
+```
+
+3. Run Redis server
 
 ```bash
 docker run -it --rm \
@@ -61,7 +192,7 @@ docker run -it --rm \
     redis-server /etc/redis-stack.conf --protected-mode no --bind 0.0.0.0 --loglevel debug
 ```
 
-3. Launch docker container, attaching the volume where is the audio file on which you will test
+4. Launch docker container, attaching the volume where is the audio file on which you will test
 
 ```bash
 docker run -it --rm \
@@ -71,10 +202,14 @@ docker run -it --rm \
     --env SERVICES_BROKER=redis://172.17.0.1:6379 \
     --env BROKER_PASS= \
     --env CONCURRENCY=2 \
+    --env QDRANT_HOST=localhost \
+    --env QDRANT_PORT=6333 \
+    --env QDRANT_COLLECTION_NAME=speaker_embeddings \
+    --env QDRANT_RECREATE_COLLECTION=true \
     linto-diarization-pyannote:latest
 ```
 
-3. Testing with a given audio file can be done using python3 (with packages `celery` and `redis` installed).
+5. Testing with a given audio file can be done using python3 (with packages `celery` and `redis` installed).
    For example with the following command for the file `$HOME/test.wav` with 2 speakers
 
 ```bash
@@ -90,3 +225,9 @@ print(worker.send_task('diarization_task', (os.environ['HOME']+'/test.wav', 2, N
 
 ## License
 This project is developped under the AGPLv3 License (see LICENSE).
+
+The diarization backends bundle third-party pretrained models distributed under their
+own licenses. In particular, the PyAnnote backend uses
+[pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+(licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)); see
+[pyannote/README.md](pyannote/README.md#acknowlegment) for attribution details.

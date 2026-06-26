@@ -1,16 +1,40 @@
-version: '3.7'
-
 services:
-  my-diarization-service:
-    image: linto-diarization-simple:latest
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    ports:
+      - "6333:6333"  # Qdrant default port
     volumes:
-      - /path/to/shared/folder:/opt/audio
-    env_file: .env
-    deploy:
-      replicas: 1
-    networks:
-      - your-net
+      - ./qdrant_storage:/qdrant/storage:z
 
-networks:
-  your-net:
-    external: true
+  diarization_app: 
+    build: 
+      context : .
+      dockerfile: pyannote/Dockerfile
+    container_name: diarization_app
+    shm_size: '1gb'
+    stdin_open: true
+    tty: true     
+    ports :
+      - 8080:80
+    environment:
+      - QDRANT_HOST
+      - QDRANT_PORT
+      - QDRANT_COLLECTION_NAME
+      - QDRANT_RECREATE_COLLECTION
+      - SERVICE_MODE
+      - SERVICE_NAME
+      - SERVICES_BROKER
+      - CONCURRENCY
+    volumes:
+      - ./data/speakers_samples:/opt/speaker_samples # Reference Speaker samples 
+      - ./data/test_samples:/opt/audio # Test audio file (Celery task mode)
+    depends_on:
+      - qdrant  # Ensure Qdrant starts before the app
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

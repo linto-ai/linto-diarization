@@ -1,3 +1,7 @@
 start_container.sh
 __pycache__
 .env
+.venv-spkid/
+.pytest_cache/
+.venv-itest/
+pretrained_models/

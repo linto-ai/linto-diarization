@@ -1,14 +1,25 @@
-celery[redis,auth,msgpack]>=4.4.7
-flask>=1.1.2
-flask-cors>=3.0.10
+# Adjust the CUDA build to match the Docker base image (cu126 works with torch 2.8.0)
+--extra-index-url https://download.pytorch.org/whl/cu126
+celery[redis,auth,msgpack]==5.5.1
+flask==3.0.3
+flask-cors==5.0.0
 flask-swagger-ui==3.36.0
-gunicorn>=20.1.0
-gevent
-pyyaml>=5.4.1
-supervisor>=4.2.2
-pyannote.audio==3.1.1
-speechbrain==0.5.16
-torchaudio==2.2.1
+gunicorn==23.0.0
+gevent==24.2.1
+pyyaml==6.0.3
+supervisor==4.3.0
+pyannote.audio==4.0.4
+# 1.0.0 only works while torchaudio<2.9 (calls the removed list_audio_backends); 1.1.0 guards it
+speechbrain==1.1.0
+requests==2.34.2
+# Last 0.x release: pyannote.audio 4.0.4 needs >=0.28.1; avoid huggingface-hub 1.x breaking API changes
+huggingface-hub==0.36.2
+# Keep torch/torchaudio/torchcodec as a matched set; pin torch explicitly (don't rely on transitive resolution)
+torch==2.8.0
+torchaudio==2.8.0
+# REQUIRED by pyannote.audio 4.x for audio decoding; also needs FFmpeg libs (libav*) in the image
+torchcodec==0.7.0
 memory-tempfile==2.2.3
-# Version 2 of numpy breaks pyannote 3.1.1 (use of np.NaN instead of np.nan)
-numpy<2
+# numpy 2.2.x is the last series supporting Python 3.10 (the Docker base image); 2.3+ needs >=3.11
+numpy==2.2.6
+qdrant-client==1.18.0

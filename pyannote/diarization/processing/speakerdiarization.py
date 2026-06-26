@@ -10,19 +10,15 @@ import tqdm
 import torch
 import torchaudio
 import werkzeug
-from pyannote.audio import Audio, Pipeline
+from pyannote.audio import Pipeline
 
 sys.path.append(
     os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "identification"
     )
 )
-import identification
-from identification.speaker_identify import (
-    initialize_speaker_identification,
-    check_speaker_specification,
-    speaker_identify_given_diarization,
-)
+
+from identification.speaker_identify import SpeakerIdentifier
 
 class SpeakerDiarization:
     def __init__(
@@ -53,26 +49,58 @@ class SpeakerDiarization:
             + (f" ({num_threads} threads)" if device == "cpu" else "")
         )
         self.tolerated_silence = tolerated_silence
-        home = os.path.expanduser('~')
 
-        model_configuration = "pyannote/speaker-diarization-3.1"
-        local_cache_yaml = {
-            "pyannote/speaker-diarization-2.1" : "torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
-            "pyannote/speaker-diarization-3.1" : "models--pyannote--speaker-diarization-3.1/snapshots/19c7c42a5047c3e982102ee1eb687ed866b4d193/config.yaml",
-        }
-        cache_parent_folder = os.path.join(home, ".cache")
-        model_configuration = os.path.join(cache_parent_folder, local_cache_yaml[model_configuration])
+        # Kept for reference (pyannote.audio <= 3.x, no longer used): these mapped a
+        # model name to a local Hugging Face cache snapshot config.yaml under /opt/models.
+        # model_configuration = "pyannote/speaker-diarization-3.1"
+        # local_cache_yaml = {
+        #     "pyannote/speaker-diarization-2.1" : "torch/pyannote/models--pyannote--speaker-diarization/snapshots/25bcc7e3631933a02af5ee39379797d704aee3f8/config.yaml",
+        #     "pyannote/speaker-diarization-3.1" : "models--pyannote--speaker-diarization-3.1/snapshots/19c7c42a5047c3e982102ee1eb687ed866b4d193/config.yaml",
+        # }
+        # cache_parent_folder = "/opt/models"
+        # model_configuration = os.path.join(cache_parent_folder, local_cache_yaml[model_configuration])
 
-        self.pipeline = Pipeline.from_pretrained(
-            model_configuration,
-            cache_dir=cache_parent_folder
+        # pyannote.audio 4.x stores the pipeline and its models together in a single
+        # directory (config.yaml + embedding/, plda/, segmentation/ subfolders), so it
+        # is loaded by pointing at that local folder (no Hugging Face cache layout, no
+        # token needed for offline use). The model is fetched at build time (see Dockerfile).
+        model_configuration = os.environ.get(
+            "PYANNOTE_MODEL", "/opt/models/speaker-diarization-community-1"
         )
 
+        self.pipeline = Pipeline.from_pretrained(model_configuration)
+
         self.pipeline = self.pipeline.to(torch.device(device))
+
+        # Optionally override the segmentation window step, as a ratio of the window
+        # duration (smaller = more window overlap = more embeddings = slower). The
+        # default is whatever the model config specifies (0.1, i.e. 90% overlap);
+        # increasing it trades a little accuracy for a near-proportional speedup of
+        # the dominant embedding stage. The value is read at inference time by the
+        # segmentation Inference, so mutating it here is enough.
+        seg_step = os.environ.get("PYANNOTE_SEGMENTATION_STEP")
+        if seg_step:
+            try:
+                ratio = float(seg_step)
+                if not 0.0 < ratio <= 1.0:
+                    raise ValueError
+            except ValueError:
+                raise RuntimeError(
+                    "PYANNOTE_SEGMENTATION_STEP must be a float in (0, 1], "
+                    f"got {seg_step!r}"
+                )
+            self.pipeline._segmentation.step = ratio * self.pipeline._segmentation.duration
+            self.pipeline.segmentation_step = ratio
+            self.log.info(
+                f"Overriding segmentation step to {ratio} "
+                f"({self.pipeline._segmentation.step:.2f}s window step)"
+            )
+
         self.num_threads = num_threads
         self.tempfile = None
+        self.speaker_identifier = SpeakerIdentifier(device=device, log=self.log)
 
-        initialize_speaker_identification(self.log)
+        self.speaker_identifier.initialize_speaker_identification()
 
 
     def run_pyannote(self, audioFile, speaker_count, max_speaker):
@@ -100,23 +128,27 @@ class SpeakerDiarization:
             self.log.info(f"Cache file {cache_file} will be used")
 
         torch.set_num_threads(self.num_threads)
-        if isinstance(audioFile, io.IOBase):
-            # Workaround for https://github.com/pyannote/pyannote-audio/issues/1179
-            waveform, sample_rate = torchaudio.load(audioFile)
-            audioFile = {
-                "waveform": waveform,
-                "sample_rate": sample_rate,
-            }
 
-        elif isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
+        # Pre-load the whole waveform into memory and hand the pipeline a tensor.
+        # When given a file path (or a lazy file object), pyannote.audio 4.x re-reads
+        # the source for every overlapping embedding window, which dominates runtime on
+        # long recordings (measured ~3x slower; RTF 0.068 -> 0.026 on a 50min file).
+        # Decoding once up front avoids it (the community-1 model card also recommends
+        # pre-loading). The io.IOBase path is also a workaround for overlapping speech,
+        # see https://github.com/pyannote/pyannote-audio/issues/1179
+        if isinstance(audioFile, werkzeug.datastructures.file_storage.FileStorage):
             audioFile = io.BytesIO(audioFile.read())
-           
 
-        elif isinstance(audioFile, str):
-            audioFile = {"audio": audioFile, "channel": 0}
-            
-        else:
-            raise ValueError(f"Unsupported audio file type {type(audioFile  )}")
+        if isinstance(audioFile, (str, io.IOBase)):
+            waveform, sample_rate = torchaudio.load(audioFile)
+            # if waveform.shape[0] > 1:
+            #     waveform = waveform.mean(dim=0, keepdim=True)
+            # if sample_rate != 16000:
+            #     waveform = torchaudio.functional.resample(waveform, sample_rate, 16000)
+            #     sample_rate = 16000
+            audioFile = {"waveform": waveform, "sample_rate": sample_rate}
+        elif not (isinstance(audioFile, dict) and "waveform" in audioFile):
+            raise ValueError(f"Unsupported audio file type {type(audioFile)}")
 
         class ProgressBarHook:
             def __init__(self):
@@ -143,6 +175,11 @@ class SpeakerDiarization:
             diarization = self.pipeline(audioFile, num_speakers=speaker_count, hook=ProgressBarHook())
         else:
             diarization = self.pipeline(audioFile, min_speakers=1, max_speakers=max_speaker, hook=ProgressBarHook())
+
+        # pyannote.audio 4.x returns a DiarizeOutput wrapper; the speaker diarization
+        # Annotation (including overlapping speech) is on its .speaker_diarization attribute.
+        # Fall back to the object itself for the legacy Annotation return type (<= 3.x).
+        diarization = getattr(diarization, "speaker_diarization", diarization)
 
         # Remove small silences inside speaker turns
         if self.tolerated_silence:
@@ -198,7 +235,7 @@ class SpeakerDiarization:
         speaker_names = None,
     ):
         # Early check on speaker names
-        speaker_names = check_speaker_specification(speaker_names)
+        speaker_names = self.speaker_identifier.check_speaker_specification(speaker_names)
 
         # If we run both speaker diarization and speaker identification, we need to save the file
         if speaker_names and isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
@@ -219,7 +256,7 @@ class SpeakerDiarization:
             result = self.run_pyannote(
                 file_path, speaker_count=speaker_count, max_speaker=max_speaker
             )
-            result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log)
+            result = self.speaker_identifier.speaker_identify_given_diarization(file_path, result, speaker_names)
             return result
         except Exception as e:
             self.log.error(e)

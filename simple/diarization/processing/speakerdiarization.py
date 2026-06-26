@@ -8,6 +8,7 @@ import json
 import memory_tempfile
 import torch
 import werkzeug
+import warnings
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "simple_diarizer"))
 import simple_diarizer
@@ -18,13 +19,7 @@ sys.path.append(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "identification"
     )
 )
-import identification
-from identification.speaker_identify import (
-    initialize_speaker_identification,
-    check_speaker_specification,
-    speaker_identify_given_diarization,
-)
-
+from identification.speaker_identify import SpeakerIdentifier
 
 class SpeakerDiarization:
     def __init__(self, device=None, device_vad=None, device_clustering=None, num_threads=None):
@@ -58,8 +53,9 @@ class SpeakerDiarization:
                )
 
         self.tempfile = None
+        self.speaker_identifier = SpeakerIdentifier(device=device, log=self.log)
 
-        initialize_speaker_identification(self.log)
+        self.speaker_identifier.initialize_speaker_identification()
 
     def run_simple_diarizer(self, file_path, speaker_count, max_speaker):
 
@@ -199,7 +195,7 @@ class SpeakerDiarization:
         speaker_names = None,
     ):
         # Early check on speaker names
-        speaker_names = check_speaker_specification(speaker_names)
+        speaker_names = self.speaker_identifier.check_speaker_specification(speaker_names)
 
         if isinstance(file_path, werkzeug.datastructures.file_storage.FileStorage):
             if self.tempfile is None:
@@ -215,13 +211,14 @@ class SpeakerDiarization:
         self.log.info(f"Starting diarization on file {file_path}")
 
         if speaker_count is None and max_speaker is None:
-            raise Exception("Either speaker_count or max_speaker must be set")
+            max_speaker = 50 # default value
+            warnings.warn(f"No speaker count nor maximum specified, using default value {max_speaker=}")
 
         try:                       
             result = self.run_simple_diarizer(
                 file_path, speaker_count=speaker_count, max_speaker=max_speaker
             )
-            result = speaker_identify_given_diarization(file_path, result, speaker_names, log=self.log)
+            result = self.speaker_identifier.speaker_identify_given_diarization(file_path, result, speaker_names)
             return result
         except Exception as e:
             self.log.error(e)

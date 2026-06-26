@@ -1,15 +1,15 @@
 FROM python:3.10
-LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com"
+LABEL maintainer="contact@linto.ai, wghezaiel@linagora.com, jlouradour@linagora.com, dlaine@linagora.com"
 
 # Re-Sets work directory (not sure if this is necessary)
 WORKDIR /usr/src/app
 
-# Install python and other dependencies
+# Install system dependencies (the python:3.10 base image already ships python + pip;
+# the Debian trixie apt repos no longer carry a "python3.10" package)
 RUN apt-get update && \
-    apt-get install -y python3.10 python3-pip ffmpeg git sqlite3 libsqlite3-dev && \
+    apt-get install -y ffmpeg git sqlite3 libsqlite3-dev gosu && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    ln -s /usr/bin/python3.10 /usr/bin/python
+    rm -rf /var/lib/apt/lists/*
 
 # # Set a common work directory
 WORKDIR /usr/src/app
