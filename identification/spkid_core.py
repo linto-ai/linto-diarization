@@ -12,14 +12,12 @@ import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 
-# Embedding model identity. MODEL_REVISION pins the HuggingFace revision of the
-# model so that two builds of the worker can never silently produce incompatible
-# embeddings (commit of speechbrain/spkrec-ecapa-voxceleb on the HuggingFace hub).
-MODEL_ID = "speechbrain/spkrec-ecapa-voxceleb"
-MODEL_REVISION = os.environ.get(
-    "SPEAKER_ID_MODEL_REVISION", "0f99f2d0ebe89ac095bcc5903c4dd8f72b367286"
-)
-MODEL_DIM = 192
+# Embedding model identity. MODEL_ID also tags every Qdrant point (model_id
+# payload) so that two builds of the worker can never silently mix incompatible
+# embeddings. MODEL_REVISION optionally pins a HuggingFace revision of the model.
+MODEL_ID = "pyannote/embedding"
+MODEL_REVISION = os.environ.get("SPEAKER_ID_MODEL_REVISION") or None
+MODEL_DIM = 512
 
 # Fixed namespace used to derive Qdrant point IDs from speaker ids
 # (point_id = uuid5(NAMESPACE_SPKID, speaker_id)). DO NOT change this value:
