@@ -43,11 +43,19 @@ class EmbeddingBackend:
         if self._embedding_model is not None:
             return
         tic = time.time()
-        self._embedding_model = EncoderClassifier.from_hparams(
-            source=MODEL_ID,
-            revision=MODEL_REVISION,
-            run_opts={"device": self.device},
-        )
+        # The HuggingFace revision is pinned differently across speechbrain versions:
+        # 1.0.x exposes a `revision=` argument on from_hparams, whereas 1.1+ removed it
+        # in favour of `fetch_config=FetchConfig(revision=...)` (a bare `revision=` now
+        # leaks into the model constructor and raises). Support both so this shared code
+        # works for every backend (pyannote pins 1.1.0, simple pins 1.0.0).
+        load_kwargs = {"source": MODEL_ID, "run_opts": {"device": self.device}}
+        try:
+            from speechbrain.utils.fetching import FetchConfig
+
+            load_kwargs["fetch_config"] = FetchConfig(revision=MODEL_REVISION)
+        except ImportError:
+            load_kwargs["revision"] = MODEL_REVISION
+        self._embedding_model = EncoderClassifier.from_hparams(**load_kwargs)
         if self.log:
             self.log.info(
                 f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {self.device}"

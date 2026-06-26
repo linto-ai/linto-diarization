@@ -5,6 +5,8 @@ and identify some speakers if samples of their voice are provided.
 
 LinTO-diarization can either be used as a standalone diarization service or deployed as a micro-services.
 
+Accuracy, memory usage and processing time of the `pyannote` and `simple` integrations are benchmarked in the [speaker-diarization-benchmark](https://github.com/linagora-labs/speaker-diarization-benchmark) repository.
+
 * [Prerequisites](#pre-requisites)
 * [Deploy](#deploy)
   * [HTTP](#http)
@@ -68,6 +70,8 @@ An example of .env file is provided in [pyannote/.envdefault](https://github.com
 | `DEVICE_CLUSTERING` | Device to use for clustering (Same as `DEVICE` by default) | `cpu` \| `cuda` \| `cuda:0` |
 | `DEVICE_IDENTIFICATION` | Device to use for speaker identification, if it is enabled (Same as `DEVICE` by default) | `cpu` \| `cuda` \| `cuda:0` |
 | `NUM_THREADS` | Number of threads (maximum) to use for things running on CPU | `1` \| `4` \| ... |
+| `PYANNOTE_MODEL` | (default: `/opt/models/speaker-diarization-community-1`) Pipeline to load: a local directory baked into the image, or a Hugging Face id (the latter needs network and a HF token) | `/opt/models/speaker-diarization-community-1` \| `pyannote/speaker-diarization-3.1` |
+| `PYANNOTE_SEGMENTATION_STEP` | Segmentation window step, as a ratio of the window duration (smaller = more overlap = more embeddings = slower; default `0.1` = 90% overlap). Raising it speeds up the dominant embedding stage roughly proportionally, at some accuracy cost. Unset = use the model's configured value | `0.1` \| `0.25` \| `0.5` |
 | `CUDA_VISIBLE_DEVICES` | GPU device index to use, when running on GPU/CUDA. We also recommend to set `CUDA_DEVICE_ORDER=PCI_BUS_ID` on multi-GPU machines | `0` \| `1` \| `2` \| ... |
 | `SPEAKER_SAMPLES_FOLDER` | (default: `/opt/speaker_samples`) Folder where to find audio files for target speakers samples | `/path/to/folder` |
 | `SPEAKER_PRECOMPUTED_FOLDER` | (default: `/opt/speaker_precomputed`) Folder where to store precomputed embeddings of target speakers | `/path/to/folder` |
@@ -268,3 +272,9 @@ This project is developped under the AGPLv3 License (see LICENSE).
 ## Acknowlegment.
 
 * [PyAnnote](https://github.com/pyannote/pyannote-audio) diarization framework (License MIT).
+* Diarization model [pyannote/speaker-diarization-community-1](https://huggingface.co/pyannote/speaker-diarization-community-1)
+  by Hervé Bredin, Alexis Plaquet and the pyannote team, licensed under
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+  The model weights distributed with this image (fetched at build time from `dl.linto.ai`)
+  are a repackaging of the original repository files for offline use; the weights themselves
+  are unmodified. See the bundled `LICENSE` and `NOTICE` files for full attribution and citations.

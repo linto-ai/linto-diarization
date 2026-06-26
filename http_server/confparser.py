@@ -16,7 +16,12 @@ def createParser() -> argparse.ArgumentParser:
     )
 
     # GUNICORN
-    parser.add_argument("--service_port", type=int, help="Service port", default=80)
+    parser.add_argument(
+        "--service_port",
+        type=int,
+        help="Service port",
+        default=int(os.environ.get("SERVICE_PORT", 80)),
+    )
     parser.add_argument(
         "--workers",
         type=int,
