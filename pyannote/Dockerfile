@@ -35,6 +35,22 @@ RUN wget https://dl.linto.ai/downloads/model-distribution/speaker-diarization/py
 RUN unzip pyannote-community-1.zip -d /opt/models
 RUN rm pyannote-community-1.zip
 
+# Bake the ECAPA speaker-embedding model (speaker identification) into the
+# image, like the diarization models above: air-gapped deployments cannot
+# fetch it from huggingface.co at runtime. HF_HOME lives under /opt/models —
+# NOT under /var/www/.cache, which deployments typically mount a volume over —
+# so the hub cache baked here is exactly what speechbrain reads at runtime.
+# The revision is pinned to MODEL_REVISION in identification/spkid_core.py:
+# with a commit revision present in the cache, huggingface_hub never touches
+# the network. chown 33:33 = default runtime user (docker-entrypoint.sh), and
+# keeps the cache writable if SPEAKER_ID_MODEL_REVISION is ever overridden.
+ENV HF_HOME=/opt/models/huggingface
+RUN python -c "\
+from huggingface_hub import hf_hub_download; \
+[hf_hub_download('speechbrain/spkrec-ecapa-voxceleb', f, revision='0f99f2d0ebe89ac095bcc5903c4dd8f72b367286') \
+ for f in ('hyperparams.yaml', 'embedding_model.ckpt', 'mean_var_norm_emb.ckpt', 'classifier.ckpt', 'label_encoder.txt')]" \
+    && chown -R 33:33 /opt/models/huggingface
+
 # Install sources to serve API
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server
