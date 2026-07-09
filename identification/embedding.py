@@ -1,7 +1,7 @@
 """
-Embedding backend for speaker identification: ECAPA-TDNN model loading and
-audio -> embedding computation. This module imports torch/speechbrain and must
-only be imported by the worker runtime (not by the unit test suite).
+Embedding backend for speaker identification: pyannote embedding model loading
+and audio -> embedding computation. This module imports torch/pyannote.audio and
+must only be imported by the worker runtime (not by the unit test suite).
 """
 
 import os
@@ -10,12 +10,7 @@ import time
 
 import torch
 import torchaudio
-import speechbrain
-
-if speechbrain.__version__ >= "1.0.0":
-    from speechbrain.inference.speaker import EncoderClassifier
-else:
-    from speechbrain.pretrained import EncoderClassifier
+from pyannote.audio import Inference, Model
 
 from identification.spkid_core import MODEL_ID, MODEL_REVISION
 
@@ -27,6 +22,7 @@ class EmbeddingBackend:
         self.device = device or self._get_device()
         self.log = log
         self._embedding_model = None
+        self._inference = None
 
     @staticmethod
     def _get_device():
@@ -43,19 +39,20 @@ class EmbeddingBackend:
         if self._embedding_model is not None:
             return
         tic = time.time()
-        # The HuggingFace revision is pinned differently across speechbrain versions:
-        # 1.0.x exposes a `revision=` argument on from_hparams, whereas 1.1+ removed it
-        # in favour of `fetch_config=FetchConfig(revision=...)` (a bare `revision=` now
-        # leaks into the model constructor and raises). Support both so this shared code
-        # works for every backend (pyannote pins 1.1.0, simple pins 1.0.0).
-        load_kwargs = {"source": MODEL_ID, "run_opts": {"device": self.device}}
-        try:
-            from speechbrain.utils.fetching import FetchConfig
-
-            load_kwargs["fetch_config"] = FetchConfig(revision=MODEL_REVISION)
-        except ImportError:
+        # The pyannote embedding model can be fetched from the HuggingFace hub
+        # (gated: needs an access token) or loaded from a local snapshot. The
+        # source and optional token/revision are configurable via env.
+        model_source = os.environ.get("SPEAKER_ID_EMBEDDING_MODEL", MODEL_ID)
+        auth_token = os.environ.get("HUGGINGFACE_TOKEN") or os.environ.get("HF_TOKEN")
+        load_kwargs = {}
+        if auth_token:
+            load_kwargs["use_auth_token"] = auth_token
+        if MODEL_REVISION:
             load_kwargs["revision"] = MODEL_REVISION
-        self._embedding_model = EncoderClassifier.from_hparams(**load_kwargs)
+        self._embedding_model = Model.from_pretrained(model_source, **load_kwargs)
+        # window="whole" -> a single embedding for the whole input waveform
+        self._inference = Inference(self._embedding_model, window="whole")
+        self._inference.to(torch.device(self.device))
         if self.log:
             self.log.info(
                 f"Speaker identification model loaded in {time.time() - tic:.3f} seconds on {self.device}"
@@ -72,7 +69,10 @@ class EmbeddingBackend:
         # The following is to avoid a failure on too short audio (less than 640 samples = 40ms at 16kHz)
         if audio.shape[-1] < min_len:
             audio = torch.cat([audio, torch.zeros(audio.shape[0], min_len - audio.shape[-1])], dim=-1)
-        return self._embedding_model.encode_batch(audio)
+        # pyannote returns a 1D numpy vector for window="whole"; wrap it as a
+        # [1, dim] tensor so callers can use embedding[0].flatten() and .cpu()
+        embedding = self._inference({"waveform": audio, "sample_rate": 16000})
+        return torch.from_numpy(embedding).unsqueeze(0)
 
     @staticmethod
     def convert_wavfile(wavfile, outfile):
