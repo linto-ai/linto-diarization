@@ -11,7 +11,7 @@ def notifyLintoDeploy(service_name, tag, commit_sha) {
 }
 
 def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFiles, commit_sha) {
-    if (changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('http_server') || changedFiles.contains('document') || changedFiles.contains('docker-entrypoint.sh') || changedFiles.contains('healthcheck.sh') || changedFiles.contains('wait-for-it.sh')) {
+    if (changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('identification') || changedFiles.contains('pyproject.toml') || changedFiles.contains('uv.lock') || changedFiles.contains('http_server') || changedFiles.contains('document') || changedFiles.contains('docker-entrypoint.sh') || changedFiles.contains('healthcheck.sh') || changedFiles.contains('wait-for-it.sh')) {
         echo "Building Dockerfile for ${image_name} with version ${version} (using ${dockerfilePath})"
 
         script {
@@ -77,6 +77,9 @@ pipeline {
         // DOCKER_HUB_REPO_PYBK   = "lintoai/linto-diarization-pybk" // DEPRECATED
         DOCKER_HUB_REPO_PYANNOTE = "lintoai/linto-diarization-pyannote"
         DOCKER_HUB_REPO_SIMPLE = "lintoai/linto-diarization-simple"
+        DOCKER_HUB_REPO_NEMOTRON = "lintoai/linto-diarization-nemotron"
+        // nemotron/Dockerfile uses BuildKit features (cache mounts)
+        DOCKER_BUILDKIT = "1"
         STAGING_REGISTRY_PYANNOTE = "registry.staging.linto.ai/lintoai/linto-diarization-pyannote"
         STAGING_REGISTRY_CRED = 'staging-registry-credentials'
     }
@@ -111,6 +114,12 @@ pipeline {
                         script: "awk -v RS='' '/#/ {print; exit}' pyannote/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
                     buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles, commit_sha)
+
+                    version = sh(
+                        returnStdout: true,
+                        script: "awk -v RS='' '/#/ {print; exit}' nemotron/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                    ).trim()
+                    buildDockerfile('nemotron', 'nemotron/Dockerfile', env.DOCKER_HUB_REPO_NEMOTRON, version, changedFiles, commit_sha)
                 }
             }
         }
@@ -130,6 +139,7 @@ pipeline {
                     // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles, '') // DEPRECATED
                     buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles, '')
                     buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles, '')
+                    buildDockerfile('nemotron', 'nemotron/Dockerfile', env.DOCKER_HUB_REPO_NEMOTRON, version, changedFiles, '')
                 }
             }
         }

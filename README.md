@@ -6,6 +6,7 @@ with some capabilities for Speaker Identification when audio samples of known sp
 LinTO-diarization can currently work with several technologies.
 The following families of technologies are currently supported (please refer to respective documentation for more details):
 * [PyAnnote](pyannote/README.md)
+* [Nemotron](nemotron/README.md) (NVIDIA Nemotron 3 Diarization, up to 8 speakers)
 * [simple_diarizer](simple/README.md)
 * [PyBK](pybk/README.md) (deprecated)
 
