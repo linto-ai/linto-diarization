@@ -193,6 +193,7 @@ class SpeakerDiarization:
         speaker_count: int = None,
         max_speaker: int = None,
         speaker_names = None,
+        progress_callback = None,  # accepted for the shared celery task, not reported
     ):
         # Early check on speaker names
         speaker_names = self.speaker_identifier.check_speaker_specification(speaker_names)

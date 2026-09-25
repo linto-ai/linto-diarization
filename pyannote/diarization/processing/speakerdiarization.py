@@ -103,7 +103,7 @@ class SpeakerDiarization:
         self.speaker_identifier.initialize_speaker_identification()
 
 
-    def run_pyannote(self, audioFile, speaker_count, max_speaker):
+    def run_pyannote(self, audioFile, speaker_count, max_speaker, progress_callback=None):
 
         cache_file = None
         if os.environ.get("CACHE_DIARIZATION_RESULTS", False) in ["1", 1, "true", "True"]:
@@ -150,10 +150,14 @@ class SpeakerDiarization:
         elif not (isinstance(audioFile, dict) and "waveform" in audioFile):
             raise ValueError(f"Unsupported audio file type {type(audioFile)}")
 
+        # Share of the total run time per pipeline step, for progress reporting
+        step_weights = {"segmentation": 0.25, "speaker_counting": 0.05, "embeddings": 0.65, "discrete_diarization": 0.05}
+
         class ProgressBarHook:
             def __init__(self):
                 self.pbar = None
                 self.step_name = None
+                self.done_weight = 0.0
 
             def __call__(
                 self,
@@ -164,12 +168,18 @@ class SpeakerDiarization:
                 completed = None,
             ):
                 if step_name != self.step_name:
+                    if self.step_name is not None:
+                        self.done_weight += step_weights.get(self.step_name, 0.0)
                     self.step_name = step_name
                     self.pbar = tqdm.tqdm(total=total)
                 elif total:
                     self.pbar.total = total
                 self.pbar.set_description(step_name)
                 self.pbar.update(1)
+                if progress_callback:
+                    fraction = completed / total if completed is not None and total else 1.0
+                    weight = step_weights.get(step_name, 0.0)
+                    progress_callback(min(1.0, self.done_weight + weight * fraction))
 
         if speaker_count!= None:
             diarization = self.pipeline(audioFile, num_speakers=speaker_count, hook=ProgressBarHook())
@@ -233,6 +243,7 @@ class SpeakerDiarization:
         speaker_count: int = None,
         max_speaker: int = None,
         speaker_names = None,
+        progress_callback = None,
     ):
         # Early check on speaker names
         speaker_names = self.speaker_identifier.check_speaker_specification(speaker_names)
@@ -248,13 +259,13 @@ class SpeakerDiarization:
 
             with self.tempfile.NamedTemporaryFile(suffix=".wav") as ntf:
                 file_path.save(ntf.name)
-                return self.run(ntf.name, speaker_count, max_speaker, speaker_names=speaker_names)
+                return self.run(ntf.name, speaker_count, max_speaker, speaker_names=speaker_names, progress_callback=progress_callback)
 
         self.log.info(f"Starting diarization on file {file_path}")
 
         try:
             result = self.run_pyannote(
-                file_path, speaker_count=speaker_count, max_speaker=max_speaker
+                file_path, speaker_count=speaker_count, max_speaker=max_speaker, progress_callback=progress_callback
             )
             result = self.speaker_identifier.speaker_identify_given_diarization(file_path, result, speaker_names)
             return result

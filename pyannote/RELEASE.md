@@ -1,6 +1,8 @@
 # 2.3.1
 - GPU workers run Celery with `--pool=threads` instead of `--pool=solo`: the worker keeps answering ping/inspect during a task, so service discovery no longer drops a busy worker
 - Healthcheck always pings the worker (no more "GPU busy = healthy" shortcut)
+- Publish diarization progress as Celery state `PROGRESS` (meta `{"progress": 0..1}`)
+- Register `engine: pyannote` in the service info (used by transcription-service routing)
 
 # 2.3.0
 - Update pyannote.audio to 4.0.4 (and speechbrain 1.1.0)

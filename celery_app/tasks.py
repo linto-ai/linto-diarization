@@ -23,8 +23,21 @@ def _get_speaker_identifier():
     return speaker_identifier
 
 
-@celery.task(name="diarization_task")
+def _progress_reporter(task, min_step=0.02):
+    """Publish the task progress (Celery state PROGRESS, meta {"progress": 0..1}), throttled."""
+    last = [-1.0]
+
+    def report(progress):
+        if progress - last[0] >= min_step or progress >= 1.0:
+            last[0] = progress
+            task.update_state(state="PROGRESS", meta={"progress": round(float(progress), 3)})
+
+    return report
+
+
+@celery.task(name="diarization_task", bind=True)
 def diarization_task(
+    self,
     file: str,
     speaker_count: int = None,
     max_speaker: int = None,
@@ -57,6 +70,7 @@ def diarization_task(
             speaker_count=speaker_count,
             max_speaker=max_speaker,
             speaker_names=speaker_names,
+            progress_callback=_progress_reporter(self),
         )
     except Exception as e:
         import traceback
