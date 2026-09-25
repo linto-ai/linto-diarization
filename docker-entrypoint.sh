@@ -101,7 +101,10 @@ run_http_server() {
 run_celery_worker() {
     echo "Worker Mode"
     if [ $GPU_AVAILABLE -eq 1 ]; then
-        OPT="--pool=solo"
+        # prefork cannot re-initialize CUDA in forked children. solo runs the task in
+        # the main thread, so the worker stops answering ping/inspect during a job and
+        # service discovery drops it. threads keeps the consumer free (keep -c 1).
+        OPT="--pool=threads"
     else
         OPT=""
     fi
