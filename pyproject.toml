@@ -42,6 +42,9 @@ dev = ["pytest>=8.3"]
 package = false
 # Docker images only: resolving for other platforms pulls in NeMo's own per-platform torch indexes
 environments = ["sys_platform == 'linux' and platform_machine == 'x86_64'"]
+# NeMo pins hydra-core<=1.3.2 (CVE-2026-68508, fixed in 1.3.4); output checked identical.
+# lightning stays at 2.4.0: 2.6 breaks NeMo's OneLogger trainer at import.
+override-dependencies = ["hydra-core>=1.3.4"]
 
 [tool.uv.sources]
 # NeMo 3.0.0 (PyPI) cannot load Nemotron-3-Diarization (RoPE attention). Pin a commit
