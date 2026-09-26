@@ -23,6 +23,8 @@ docker build -f nemotron/Dockerfile -t lintoai/linto-diarization-nemotron .
 
 The model is downloaded at build time from `NEMOTRON_MODEL_URL` and checked against
 `NEMOTRON_MODEL_SHA256` (build arguments). Nothing is fetched from HuggingFace at runtime.
+The model license (OpenMDW-1.1) and its origin notice are copied next to the model file, as the license
+requires for redistribution (`nemotron/model-license/`).
 
 Python dependencies are locked with uv (`pyproject.toml`, `uv.lock` at the repository root, extra
 `nemotron`). NeMo is pinned to a commit of NVIDIA-NeMo/Speech `main`: release 3.0.0 cannot load the model.

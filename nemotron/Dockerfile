@@ -40,6 +40,8 @@ ARG NEMOTRON_MODEL_SHA256=867c53f552998f772e5b5e5c082962ae85ee7ca5669c2bc17d7f61
 RUN mkdir -p /opt/models/nemotron-3-diarization && \
     curl -fsSL "$NEMOTRON_MODEL_URL" -o /opt/models/nemotron-3-diarization/Nemotron-3-Diarization.nemo && \
     echo "$NEMOTRON_MODEL_SHA256  /opt/models/nemotron-3-diarization/Nemotron-3-Diarization.nemo" | sha256sum -c -
+# OpenMDW-1.1 requires the license text and origin notices to ship with the model
+COPY nemotron/model-license/ /opt/models/nemotron-3-diarization/
 
 # ECAPA speaker-embedding model (speaker identification), pinned to MODEL_REVISION in
 # identification/spkid_core.py: with that revision in the cache, huggingface_hub never

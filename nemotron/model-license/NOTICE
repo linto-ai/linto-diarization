@@ -1,0 +1,7 @@
+Nemotron-3-Diarization.nemo
+
+Model: nvidia/Nemotron-3-Diarization, by NVIDIA Corporation
+Source: https://huggingface.co/nvidia/Nemotron-3-Diarization
+Revision: f667ed73aee57d40cc39428eb768b4fd87a0a29e (file Nemotron-3-Diarization.nemo, unmodified)
+License: OpenMDW License Agreement, version 1.1 (see LICENSE.OpenMDW-1.1)
+License text: https://github.com/OpenMDW/openmdw/blob/main/1.1/LICENSE.OpenMDW-1.1
