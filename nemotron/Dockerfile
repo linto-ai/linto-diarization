@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # Nemotron 3 Diarization (NVIDIA Sortformer) worker. Build from the repository root:
 #   docker build -f nemotron/Dockerfile -t lintoai/linto-diarization-nemotron .
 
@@ -24,8 +23,7 @@ ENV UV_PROJECT_ENVIRONMENT=/usr/local/venv \
 
 WORKDIR /build
 COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --extra nemotron --no-install-project
+RUN uv sync --locked --no-dev --extra nemotron --no-install-project --no-cache
 
 ################################################################################
 # Models: fetched once at build time, checksum-verified. No HuggingFace access at runtime.

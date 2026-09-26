@@ -15,7 +15,7 @@ identification as the [pyannote](../pyannote/README.md) image.
 
 ## Build
 
-From the repository root (BuildKit required):
+From the repository root:
 
 ```bash
 docker build -f nemotron/Dockerfile -t lintoai/linto-diarization-nemotron .

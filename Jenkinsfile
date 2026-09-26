@@ -78,8 +78,6 @@ pipeline {
         DOCKER_HUB_REPO_PYANNOTE = "lintoai/linto-diarization-pyannote"
         DOCKER_HUB_REPO_SIMPLE = "lintoai/linto-diarization-simple"
         DOCKER_HUB_REPO_NEMOTRON = "lintoai/linto-diarization-nemotron"
-        // nemotron/Dockerfile uses BuildKit features (cache mounts)
-        DOCKER_BUILDKIT = "1"
         STAGING_REGISTRY_PYANNOTE = "registry.staging.linto.ai/lintoai/linto-diarization-pyannote"
         STAGING_REGISTRY_NEMOTRON = "registry.staging.linto.ai/lintoai/linto-diarization-nemotron"
         STAGING_REGISTRY_CRED = 'staging-registry-credentials'
