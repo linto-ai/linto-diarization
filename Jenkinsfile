@@ -81,6 +81,7 @@ pipeline {
         // nemotron/Dockerfile uses BuildKit features (cache mounts)
         DOCKER_BUILDKIT = "1"
         STAGING_REGISTRY_PYANNOTE = "registry.staging.linto.ai/lintoai/linto-diarization-pyannote"
+        STAGING_REGISTRY_NEMOTRON = "registry.staging.linto.ai/lintoai/linto-diarization-nemotron"
         STAGING_REGISTRY_CRED = 'staging-registry-credentials'
     }
 
@@ -149,15 +150,18 @@ pipeline {
                 branch 'staging/*'
             }
             steps {
-                echo 'Building staging feature-branch image (pyannote, private registry, never Docker Hub)'
+                echo 'Building staging feature-branch images (pyannote, nemotron, private registry, never Docker Hub)'
                 script {
                     def slug = env.BRANCH_NAME.replaceFirst('^staging/', '').replaceAll('[^a-zA-Z0-9]+', '-').toLowerCase()
                     def tag = "dev-${slug}"
                     def image = docker.build(env.STAGING_REGISTRY_PYANNOTE, "-f pyannote/Dockerfile .")
+                    def nemotron = docker.build(env.STAGING_REGISTRY_NEMOTRON, "-f nemotron/Dockerfile .")
                     docker.withRegistry('https://registry.staging.linto.ai', env.STAGING_REGISTRY_CRED) {
                         image.push(tag)
+                        nemotron.push(tag)
                     }
                     stagingDeploy('linto-diarization-pyannote', tag)
+                    stagingDeploy('linto-diarization-nemotron', tag)
                 }
             }
         }
