@@ -5,3 +5,4 @@
 - Speaker identification (ECAPA + Qdrant) shared with the pyannote image
 - Task progress published as Celery state `PROGRESS`
 - Speaker identification: an enrolled speaker is given to one diarized speaker at most (`CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER` defaults to 0)
+- Image variant `<version>-compiled` (Dockerfile target `runtime-compiled`): C compiler included, NeMo attention compiled with Triton at first use, kernels cached in `/opt/cache`. The default image stays eager, without compiler

@@ -55,7 +55,7 @@ from huggingface_hub import hf_hub_download; \
 ################################################################################
 # Runtime: slim base, no compiler, git, uv or downloader
 ################################################################################
-FROM ${PYTHON_IMAGE}
+FROM ${PYTHON_IMAGE} AS runtime
 
 LABEL maintainer="contact@linto.ai" \
       org.opencontainers.image.source="https://github.com/linto-ai/linto-diarization" \
@@ -81,8 +81,8 @@ ENV PATH="/usr/local/venv/bin:${PATH}" \
     DIARIZATION_ENGINE=nemotron \
     DIARIZATION_MAX_SPEAKERS=8
 
-# NeMo compiles flex_attention with Triton, which needs a C compiler at runtime. Eager mode
-# gives the same output (58 min of audio in ~10 s instead of ~2 s) with no compiler in the image.
+# NeMo compiles flex_attention with Triton, which needs a C compiler at runtime. Eager mode:
+# same diarization quality, about 5 times slower, no compiler (see runtime-compiled below).
 ENV TORCHDYNAMO_DISABLE=1
 
 WORKDIR /usr/src/app
@@ -97,3 +97,26 @@ ENV PYTHONPATH="/usr/src/app:/usr/src/app/diarization"
 
 HEALTHCHECK CMD ./healthcheck.sh
 ENTRYPOINT ["./docker-entrypoint.sh"]
+
+################################################################################
+# Variant with a C compiler (build with --target runtime-compiled): flex_attention is
+# compiled at first use (about 3 s), kernels cached under /opt/cache, which the entrypoint
+# hands to the runtime user. A failed compilation falls back to eager. Compile threads = 1:
+# the compile worker pool hangs under gevent (HTTP mode).
+################################################################################
+FROM runtime AS runtime-compiled
+
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends gcc libc6-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV TORCHDYNAMO_DISABLE=0 \
+    TORCHDYNAMO_SUPPRESS_ERRORS=1 \
+    TORCHINDUCTOR_COMPILE_THREADS=1 \
+    TRITON_CACHE_DIR=/opt/cache/triton \
+    TORCHINDUCTOR_CACHE_DIR=/opt/cache/torchinductor
+
+################################################################################
+# Default image: eager, no compiler
+################################################################################
+FROM runtime

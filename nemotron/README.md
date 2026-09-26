@@ -19,6 +19,8 @@ From the repository root:
 
 ```bash
 docker build -f nemotron/Dockerfile -t lintoai/linto-diarization-nemotron .
+# variant with a C compiler, published as <version>-compiled
+docker build -f nemotron/Dockerfile --target runtime-compiled -t lintoai/linto-diarization-nemotron:compiled .
 ```
 
 The model is downloaded at build time from `NEMOTRON_MODEL_URL` and checked against
@@ -49,9 +51,22 @@ computed per block of `NEMOTRON_BLOCK_SECONDS` (1 s margin each side) and the st
 from one block to the next, so the output is identical to `diarize()` on the whole file, while VRAM stays
 around 1.2 GB (`diarize()` on 5 h 50 of audio peaks at 14.6 GB).
 
-The image sets `TORCHDYNAMO_DISABLE=1`: NeMo compiles its attention with Triton, which needs a C compiler at
-runtime. In eager mode the output is the same and 58 min of audio take about 10 s instead of 2 s, with no
-compiler in the image.
+## Image variants
+
+NeMo compiles its attention with Triton, which needs a C compiler at runtime.
+
+| | default | `-compiled` |
+|---|---|---|
+| C compiler | no | gcc, libc6-dev (+200 MB) |
+| 58 min of audio (RTX 4090 Laptop) | 12.4 s | 2.2 s |
+| first request after start | normal | about 3 s of compilation |
+| DER, 33 annotated files (collar 0.25 s) | SUMM-RE 16.95 %, Simsamu 13.70 % | 16.96 %, 13.70 % |
+| scanner findings | baseline | + kernel headers and binutils CVE (none fixable) |
+
+The two variants do not give bit-identical output on long files (small numeric differences add up in the
+speaker cache), quality is the same. The compiled variant caches kernels under `/opt/cache` and falls back to
+eager if a compilation fails. The default image is the one to deliver where compilers are not allowed in
+production.
 
 ## Tests
 
