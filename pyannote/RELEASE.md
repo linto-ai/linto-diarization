@@ -3,6 +3,7 @@
 - Healthcheck always pings the worker (no more "GPU busy = healthy" shortcut)
 - Publish diarization progress as Celery state `PROGRESS` (meta `{"progress": 0..1}`)
 - Register `engine: pyannote` in the service info (used by transcription-service routing)
+- Speaker identification: an enrolled speaker is given to one diarized speaker at most (`CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER` now defaults to 0; allowing it gave wrong names on SUMM-RE)
 
 # 2.3.0
 - Update pyannote.audio to 4.0.4 (and speechbrain 1.1.0)

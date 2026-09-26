@@ -40,9 +40,6 @@ Same environment variables and modes as the pyannote image (`SERVICE_MODE=task|h
 
 The service registers `{"engine": "nemotron", "max_speakers": 8}` in its info field.
 
-Speaker identification defaults to `CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER=0`: an enrolled speaker is given to one
-diarized speaker at most (on SUMM-RE, allowing it produced wrong names with both engines).
-
 ## Inference
 
 The model processes audio chunk by chunk with a speaker cache (`forward_streaming_step`). Mel features are

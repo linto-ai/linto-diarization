@@ -85,10 +85,6 @@ ENV PATH="/usr/local/venv/bin:${PATH}" \
 # gives the same output (58 min of audio in ~10 s instead of ~2 s) with no compiler in the image.
 ENV TORCHDYNAMO_DISABLE=1
 
-# One enrolled speaker is never given to two diarized speakers: Nemotron separates voices
-# well, and allowing it gave wrong names on SUMM-RE (7 meetings, 2 enrolled: 1 wrong vs 0).
-ENV CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER=0
-
 WORKDIR /usr/src/app
 COPY celery_app /usr/src/app/celery_app
 COPY http_server /usr/src/app/http_server

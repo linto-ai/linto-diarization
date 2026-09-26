@@ -24,7 +24,9 @@ from identification.spkid_core import (
 class SpeakerIdentifier:
     # Define class-level constants
     _FOLDER_WAV = os.environ.get("SPEAKER_SAMPLES_FOLDER", "/opt/speaker_samples")
-    _can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER", "1").lower() in ["true", "1", "yes"]
+    # An enrolled speaker is given to one diarized speaker at most: allowing more gave wrong
+    # names on SUMM-RE (pyannote 4, Nemotron 1, 0 when disallowed) and never fixed a split speaker
+    _can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER", "0").lower() in ["true", "1", "yes"]
     _UNKNOWN = "<<UNKNOWN>>"
     _RECREATE_COLLECTION = os.getenv("QDRANT_RECREATE_COLLECTION", "False").lower() in ["true", "1", "yes"]
 

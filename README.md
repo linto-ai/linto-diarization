@@ -22,6 +22,7 @@ repository benchmarks the `pyannote` and `simple` integrations in terms of accur
 
 Speaker identification matches diarized speakers against reference voiceprints stored in a [Qdrant](https://qdrant.tech/) vector database.
 It is enabled as soon as `QDRANT_HOST` is set (see `.envdefault` for related variables: `QDRANT_PORT`, `QDRANT_API_KEY`, `SPEAKER_ID_MIN_SIMILARITY`, `SPEAKER_ID_MAX_ENROLL_DURATION`, `SPEAKER_ID_MIN_ENROLL_DURATION`).
+An enrolled speaker is given to one diarized speaker at most; set `CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER=1` to allow several (default 0: allowing it gave wrong names on French meetings).
 
 ### Multi-collection mode (recommended)
 
