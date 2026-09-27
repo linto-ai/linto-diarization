@@ -1,5 +1,7 @@
 import os
 
+from celery.signals import worker_ready
+
 from celery_app.celeryapp import celery
 from diarization.processing import diarizationworker
 from diarization import logger
@@ -13,6 +15,14 @@ from identification.spkid_core import (
 )
 
 AUDIO_FOLDER = "/opt/audio"
+
+
+@worker_ready.connect
+def _start_live_server(**kwargs):
+    """Engines that serve live sessions (Nemotron) start their websocket server with the worker."""
+    start = getattr(diarizationworker, "start_live_server", None)
+    if start is not None:
+        start()
 
 
 def _get_speaker_identifier():

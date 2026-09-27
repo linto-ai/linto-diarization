@@ -162,20 +162,11 @@ def resolve_collections(collections, exists_fn, model_id_fn, expected_model_id, 
     return usable
 
 
-def aggregate_speaker_votes(hits, min_similarity, allowed_speaker_ids=None, exclude_speaker_ids=None):
-    """Aggregate search hits into a winning speaker
+def rank_speaker_votes(hits, min_similarity, allowed_speaker_ids=None, exclude_speaker_ids=None):
+    """Candidates from search hits, best first: list of (speaker_id, name, score).
 
-    Args:
-        hits: iterable of (score, payload) tuples (merged from all collections)
-        min_similarity (float): minimum similarity for a hit to count
-        allowed_speaker_ids: optional restriction (set/list of payload speaker_id)
-        exclude_speaker_ids: optional exclusion (already identified speakers)
-
-    Votes are summed per payload speaker_id (two namesakes across collections
-    remain two distinct candidates). The winner name is taken from its best hit.
-
-    Returns:
-        (speaker_id, name, score) of the winner, or (None, None, None)
+    Hits below min_similarity, outside allowed_speaker_ids or in exclude_speaker_ids are
+    dropped; scores are summed per payload speaker_id, the name comes from the best hit.
     """
     votes = defaultdict(float)
     best_hit = {}
@@ -192,8 +183,26 @@ def aggregate_speaker_votes(hits, min_similarity, allowed_speaker_ids=None, excl
         votes[speaker_id] += score
         if speaker_id not in best_hit or score > best_hit[speaker_id][0]:
             best_hit[speaker_id] = (score, payload_name(payload))
+    ranked = sorted(votes, key=votes.get, reverse=True)
+    return [(speaker_id, best_hit[speaker_id][1], votes[speaker_id]) for speaker_id in ranked]
 
-    if not votes:
+
+def aggregate_speaker_votes(hits, min_similarity, allowed_speaker_ids=None, exclude_speaker_ids=None):
+    """Aggregate search hits into a winning speaker
+
+    Args:
+        hits: iterable of (score, payload) tuples (merged from all collections)
+        min_similarity (float): minimum similarity for a hit to count
+        allowed_speaker_ids: optional restriction (set/list of payload speaker_id)
+        exclude_speaker_ids: optional exclusion (already identified speakers)
+
+    Votes are summed per payload speaker_id (two namesakes across collections
+    remain two distinct candidates). The winner name is taken from its best hit.
+
+    Returns:
+        (speaker_id, name, score) of the winner, or (None, None, None)
+    """
+    ranked = rank_speaker_votes(hits, min_similarity, allowed_speaker_ids, exclude_speaker_ids)
+    if not ranked:
         return None, None, None
-    winner = max(votes, key=votes.get)
-    return winner, best_hit[winner][1], votes[winner]
+    return ranked[0]

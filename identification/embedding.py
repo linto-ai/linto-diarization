@@ -4,6 +4,7 @@ audio -> embedding computation. This module imports torch/speechbrain and must
 only be imported by the worker runtime (not by the unit test suite).
 """
 
+import contextlib
 import os
 import subprocess
 import time
@@ -27,6 +28,9 @@ class EmbeddingBackend:
         self.device = device or self._get_device()
         self.log = log
         self._embedding_model = None
+        # Context manager wrapped around each embedding computation (a GPU arbiter when the
+        # worker shares the GPU with a live engine)
+        self.gpu_guard = contextlib.nullcontext
 
     @staticmethod
     def _get_device():
@@ -72,7 +76,8 @@ class EmbeddingBackend:
         # The following is to avoid a failure on too short audio (less than 640 samples = 40ms at 16kHz)
         if audio.shape[-1] < min_len:
             audio = torch.cat([audio, torch.zeros(audio.shape[0], min_len - audio.shape[-1])], dim=-1)
-        return self._embedding_model.encode_batch(audio)
+        with self.gpu_guard():
+            return self._embedding_model.encode_batch(audio)
 
     @staticmethod
     def convert_wavfile(wavfile, outfile):

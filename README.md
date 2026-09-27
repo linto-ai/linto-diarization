@@ -15,7 +15,7 @@ identification.
 | Engine | Image | Use it for | Documentation |
 |---|---|---|---|
 | pyannote | `lintoai/linto-diarization-pyannote` | default, any number of speakers | [pyannote/README.md](pyannote/README.md) |
-| Nemotron | `lintoai/linto-diarization-nemotron` (and `-compiled` tags) | meetings up to 8 speakers: more accurate and faster | [nemotron/README.md](nemotron/README.md) |
+| Nemotron | `lintoai/linto-diarization-nemotron` (and `-compiled` tags) | meetings up to 8 speakers: more accurate and faster; also live streams over websocket ([nemotron/LIVE.md](nemotron/LIVE.md)) | [nemotron/README.md](nemotron/README.md) |
 | simple_diarizer | `lintoai/linto-diarization-simple` | CPU only, lightweight | [simple/README.md](simple/README.md) |
 | PyBK | – | deprecated | [pybk/README.md](pybk/README.md) |
 

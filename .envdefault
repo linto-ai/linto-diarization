@@ -19,3 +19,8 @@ SPEAKER_ID_MIN_ENROLL_DURATION=3
 # QDRANT_COLLECTION_NAME=speaker_embeddings
 # QDRANT_RECREATE_COLLECTION=true
 # SPEAKER_SAMPLES_FOLDER=/opt/speaker_samples
+
+# Live diarization over websocket (Nemotron image, task mode): disabled when NEMOTRON_LIVE_PORT is unset
+# NEMOTRON_LIVE_PORT=8080
+# NEMOTRON_MAX_LIVE_SESSIONS=16
+# NEMOTRON_LIVE_TOKEN= # clients must send "Authorization: Bearer <token>" when set

@@ -13,6 +13,11 @@ identification as the [pyannote](../pyannote/README.md) image.
 - `speaker_count` / `max_speaker` are accepted but ignored: the model cannot be constrained.
 - GPU: Ampere or newer (L4, L40S, A4000, RTX 30/40...). NVIDIA driver >= 570 (CUDA 12.8 wheels).
 
+## Live diarization
+
+The worker can also diarize live audio streams over websocket, with speaker identification, on the same
+model: see [LIVE.md](LIVE.md).
+
 ## Build
 
 From the repository root:

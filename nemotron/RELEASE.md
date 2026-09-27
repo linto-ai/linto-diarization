@@ -1,3 +1,9 @@
+# 1.1.0
+- Live diarization over websocket (`NEMOTRON_LIVE_PORT`), served by the worker next to its Celery tasks on the same model: sessions batched on the GPU, turns every 0.72 s with 1.04 s of algorithmic latency, `/ready` for the Kubernetes readiness probe. See LIVE.md
+- Live speaker identification: at 10, 30 and 60 s of a speaker's speech, `provisional` / `confirmed` / `revoked` identities
+- GPU arbiter shared by live chunks, voiceprints and file chunks (live first)
+- Optional shared token for the live port (`NEMOTRON_LIVE_TOKEN`), backlog limit per session (`NEMOTRON_LIVE_MAX_BACKLOG`)
+
 # 1.0.0
 - First release: speaker diarization with NVIDIA Nemotron 3 Diarization (Sortformer, up to 8 speakers)
 - Block-wise streaming inference: output identical to NeMo `diarize()` on the whole file, VRAM flat (~1.2 GB) whatever the audio duration
