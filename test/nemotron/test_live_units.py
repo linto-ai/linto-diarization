@@ -75,9 +75,7 @@ class TestTurns:
 
 class TestArbiter:
     def test_live_goes_before_waiting_file_work(self):
-        sys.path.insert(0, os.path.join(ROOT, "nemotron", "diarization", "processing"))
-        pytest.importorskip("nemo")
-        from engine import FILE, IDENTIFICATION, LIVE, GpuArbiter
+        from diarization.gpu import FILE, IDENTIFICATION, LIVE, GpuArbiter
 
         arbiter, order = GpuArbiter(), []
         started = threading.Event()

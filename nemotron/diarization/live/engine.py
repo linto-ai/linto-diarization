@@ -10,7 +10,10 @@ import time
 
 import torch
 
-from diarization.processing.engine import LIVE
+from diarization.gpu import LIVE
+
+from . import protocol
+from .session import HOP
 
 log = logging.getLogger("__live-engine__")
 
@@ -26,13 +29,8 @@ class LiveEngine:
         self.sessions = {}
         self.lock = threading.Lock()
         self.wake = threading.Event()
-        sm = engine.model.sortformer_modules
-        from diarization.processing.engine import PRESETS
-
-        chunk_len, right, _, _, _ = PRESETS[preset]
-        sub = sm.subsampling_factor
-        self.geometry = (1 * sub, chunk_len * sub, right * sub)  # left, chunk, right in 10 ms frames
-        self.latency_ms = (chunk_len + right) * sub * 10
+        self.geometry = engine.preset_geometry(preset)  # left, chunk, right in 10 ms frames
+        self.latency_ms = (self.geometry[1] + self.geometry[2]) * 10
         self.max_speakers = engine.max_speakers
         # Nemotron 3 predicts every 10 ms (high resolution): one prediction per feature frame
         self.frames_per_pred = int(engine.model.output_subsampling_factor)
@@ -48,13 +46,13 @@ class LiveEngine:
             session.state = self.engine.model.sortformer_modules.init_streaming_state(
                 batch_size=1, async_streaming=True, device=self.engine.device)
         with self.lock:
-            self.sessions[session.id] = session
+            self.sessions[session.key] = session
         self.wake.set()
 
     def remove(self, session):
         session.closed = True
         with self.lock:
-            self.sessions.pop(session.id, None)
+            self.sessions.pop(session.key, None)
 
     def notify(self):
         self.wake.set()
@@ -94,7 +92,7 @@ class LiveEngine:
                 continue
             left, start, end, right, s, e = spec
             # Same geometry = same tensor shapes and offsets in the batch
-            key = (left, right, end - start, e - s, (start - left) - s // 160)
+            key = (left, right, end - start, e - s, (start - left) - s // HOP)
             groups.setdefault(key, []).append((session, spec))
         if not groups:
             return False
@@ -102,29 +100,40 @@ class LiveEngine:
             for i in range(0, len(items), self.max_batch):
                 batch = items[i:i + self.max_batch]
                 try:
-                    self._step(key, batch)
+                    preds = self._step(key, batch)
                 except Exception:
+                    # nothing was updated: run the sessions one by one to isolate the faulty one
                     log.exception(f"Live step failed for {len(batch)} sessions, retrying them one by one")
                     for item in batch:
-                        self._step_alone(key, item)
+                        try:
+                            self._deliver([item], self._step(key, [item]))
+                        except Exception as err:
+                            self._fail(item[0], err)
+                    continue
+                self._deliver(batch, preds)
         return True
 
-    def _step_alone(self, key, item):
-        """One session whose batch failed: on a second failure the session is ended with an error."""
-        session = item[0]
-        try:
-            self._step(key, [item])
-        except Exception as err:
-            log.exception(f"Live step failed for session {session.id}, closing it")
-            from . import protocol
+    def _deliver(self, items, preds):
+        for j, (session, (_, start, end, _, _, _)) in enumerate(items):
+            try:
+                session.on_preds(start, end, preds[j])
+            except Exception as err:
+                self._fail(session, err)
+                continue
+            if session.done():
+                self.remove(session)
 
-            self.remove(session)
-            session.ended = True
-            session.emit(protocol.error("internal", f"diarization failed: {err}"))
-            session.emit(protocol.end(session.pos * 10))
+    def _fail(self, session, err):
+        log.exception(f"Live session {session.id} failed, closing it")
+        self.remove(session)
+        session.ended = True
+        session.emit(protocol.error("internal", f"diarization failed: {err}"))
+        session.emit(protocol.end(session.pos * 10))
 
     @torch.inference_mode()
     def _step(self, key, items):
+        """One batched streaming step; returns the predictions. Session states are replaced only
+        once the whole step succeeded."""
         left, right, width, n_samples, rel = key
         engine, model = self.engine, self.engine.model
         sm = model.sortformer_modules
@@ -146,12 +155,9 @@ class LiveEngine:
                 left_offset=left,
                 right_offset=right,
             )
+            preds = preds.float().cpu().numpy()
             for j, (session, _) in enumerate(items):
                 for k in STATE_KEYS:
                     setattr(session.state, k, getattr(state, k)[j:j + 1].clone())
-            preds = preds.float().cpu().numpy()
         self.steps += 1
-        for j, (session, (_, start, end, _, _, _)) in enumerate(items):
-            session.on_preds(start, end, preds[j])
-            if session.done():
-                self.remove(session)
+        return preds

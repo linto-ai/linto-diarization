@@ -1,4 +1,4 @@
-"""From speaker activity probabilities (80 ms frames) to speech turns and single-speaker frames."""
+"""From speaker activity probabilities (one row per prediction frame) to speech turns and single-speaker frames."""
 import numpy as np
 
 THRESHOLD = 0.5

@@ -2,15 +2,14 @@
 
 Kept independent from Celery/HTTP so that the live (websocket) engine can share the model.
 """
-import contextlib
 import logging
 import os
-import threading
 
 import numpy as np
 import soundfile as sf
 import torch
 
+from diarization.gpu import FILE, GpuArbiter
 from nemo.collections.asr.models import SortformerEncLabelModel
 from nemo.collections.asr.parts.utils.speaker_utils import generate_diarization_output_lines
 from nemo.collections.asr.parts.utils.vad_utils import (
@@ -31,34 +30,6 @@ PRESETS = {
     "very_low_latency": (6, 2, 264, 222, 264),  # 0.64 s
     "ultra_low_latency": (3, 1, 264, 222, 264),  # 0.32 s
 }
-
-
-# GPU priorities: live chunks first, then speaker embeddings, then file chunks
-LIVE, IDENTIFICATION, FILE = 0, 1, 2
-
-
-class GpuArbiter:
-    """Lets one thread at a time use the model; a waiting thread with a lower priority value goes first."""
-
-    def __init__(self):
-        self._cond = threading.Condition()
-        self._busy = False
-        self._waiting = [0, 0, 0]
-
-    @contextlib.contextmanager
-    def hold(self, priority):
-        with self._cond:
-            self._waiting[priority] += 1
-            while self._busy or any(self._waiting[p] for p in range(priority)):
-                self._cond.wait()
-            self._waiting[priority] -= 1
-            self._busy = True
-        try:
-            yield
-        finally:
-            with self._cond:
-                self._busy = False
-                self._cond.notify_all()
 
 
 class NemotronEngine:
@@ -88,6 +59,12 @@ class NemotronEngine:
         self.margin = int(margin_seconds * SAMPLE_RATE) // HOP * HOP
         self.postprocessing = load_postprocessing_from_yaml(None)
         log.info(f"Nemotron engine ready on {self.device} (preset={preset}, max_speakers={self.max_speakers})")
+
+    def preset_geometry(self, preset):
+        """(left, chunk, right) context of a chunk in 10 ms feature frames."""
+        chunk_len, right, _, _, _ = PRESETS[preset]
+        sub = self.model.sortformer_modules.subsampling_factor
+        return 1 * sub, chunk_len * sub, right * sub
 
     def use_preset(self, preset, async_streaming):
         """Set the streaming parameters of the shared model. Call while holding self.gpu."""

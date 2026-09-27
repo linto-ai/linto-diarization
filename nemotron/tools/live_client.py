@@ -28,7 +28,8 @@ def merge(turns, gap_ms=0):
     return by
 
 
-async def stream(url, wav_path, speed=1.0, identification=None, session=None, verbose=False, max_seconds=None):
+async def stream(url, wav_path, speed=1.0, identification=None, session=None, verbose=False, max_seconds=None,
+                 token=None):
     audio, sr = sf.read(wav_path, dtype="int16")
     assert sr == 16000 and audio.ndim == 1, "16 kHz mono wav expected"
     if max_seconds:
@@ -40,7 +41,8 @@ async def stream(url, wav_path, speed=1.0, identification=None, session=None, ve
         start["identification"] = identification
     result = {"turns": [], "identities": [], "errors": [], "saturated": False, "latencies": []}
     sent_ms = [0]
-    async with connect(url, max_size=2**22) as ws:
+    headers = {"Authorization": f"Bearer {token}"} if token else None
+    async with connect(url, max_size=2**22, additional_headers=headers) as ws:
         await ws.send(json.dumps(start))
         ready = json.loads(await ws.recv())
         if ready["type"] != "ready":
@@ -93,9 +95,10 @@ def main():
     parser.add_argument("wav")
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--identification", help="JSON file with the identification object")
+    parser.add_argument("--token", help="value of NEMOTRON_LIVE_TOKEN on the server")
     args = parser.parse_args()
     spec = json.load(open(args.identification)) if args.identification else None
-    r = asyncio.run(stream(args.url, args.wav, args.speed, spec, verbose=True))
+    r = asyncio.run(stream(args.url, args.wav, args.speed, spec, verbose=True, token=args.token))
     print(json.dumps({k: v for k, v in r.items() if k != "turns"}, indent=1, default=str))
 
 

@@ -13,7 +13,7 @@ def start_live_server(speaker_diarization):
     port = os.environ.get("NEMOTRON_LIVE_PORT")
     if not port:
         return None
-    from diarization.processing.engine import IDENTIFICATION
+    from diarization.gpu import IDENTIFICATION
 
     from .engine import LiveEngine
     from .identify import IdentificationWorker
@@ -32,6 +32,7 @@ def start_live_server(speaker_diarization):
         IdentificationWorker(identifier),
         int(port),
         int(os.environ.get("NEMOTRON_MAX_LIVE_SESSIONS", 16)),
+        token=os.environ.get("NEMOTRON_LIVE_TOKEN") or None,
     )
     server.start()
     return server

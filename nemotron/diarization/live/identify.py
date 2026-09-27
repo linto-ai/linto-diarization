@@ -15,8 +15,9 @@ import queue
 import threading
 
 import numpy as np
+import torch
 
-from identification.spkid_core import rank_speaker_votes, resolve_collections, resolve_min_similarity
+from identification.spkid_core import MODEL_ID, rank_speaker_votes, resolve_collections, resolve_min_similarity
 
 from . import protocol
 
@@ -39,7 +40,6 @@ class SpeakerIdentityTracker:
     add_speech() returns the attempts to run; apply_result() returns the identity messages."""
 
     def __init__(self, spec, milestones=None, confirm_seconds=CONFIRM_SECONDS):
-        self.spec = spec
         self.min_similarity = resolve_min_similarity(spec.get("minSimilarity"))
         self.allowed = None if spec.get("speakers", "*") == "*" else set(spec["speakers"])
         self.milestones = milestones or _milestones()
@@ -115,16 +115,12 @@ class IdentificationWorker:
 
     def usable_collections(self, collections):
         store = self.identifier.store
-        from identification.spkid_core import MODEL_ID
-
         return resolve_collections(collections, store.collection_exists, store.get_collection_model_id, MODEL_ID, log=log)
 
     def submit(self, session, label, seconds, audio, until_ms=None):
         self.jobs.put((session, label, seconds, audio, until_ms))
 
     def search(self, audio, collections, tracker):
-        import torch
-
         tensor = torch.from_numpy(audio).unsqueeze(0)
         vector = self.identifier.embedding.compute_embedding(tensor)[0].flatten()
         hits = []

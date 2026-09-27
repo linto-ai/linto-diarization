@@ -17,7 +17,8 @@ class LiveSession:
         geometry: (left, chunk, right) in 10 ms feature frames; frames_per_pred: feature frames per
         prediction frame (1 for Nemotron 3, which predicts every 10 ms).
         identification: IdentificationWorker or None."""
-        self.id = config.get("session") or uuid.uuid4().hex
+        self.key = uuid.uuid4().hex  # engine key: client ids are not trusted to be unique
+        self.id = config.get("session") or self.key  # for the logs
         self.emit = emit
         self.left, self.chunk, self.right = geometry
         self.frames_per_pred = frames_per_pred
@@ -105,7 +106,7 @@ class LiveSession:
     # --- results (engine thread) ---
 
     def on_preds(self, start, end, preds):
-        """preds: [80 ms frames, speakers] for feature frames [start, end)."""
+        """preds: [prediction frames, speakers] for feature frames [start, end)."""
         first = start // self.frames_per_pred
         preds = preds[: max(0, -(-(end - start) // self.frames_per_pred))]
         found = turns.runs(preds, first, self.frame_ms)

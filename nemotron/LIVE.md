@@ -13,6 +13,8 @@ Enabled when `NEMOTRON_LIVE_PORT` is set (task mode only).
 | `NEMOTRON_LIVE_PRESET` | `low_latency` | streaming preset: 1.04 s of algorithmic latency |
 | `NEMOTRON_LIVE_MAX_BATCH` | `16` | sessions processed in one GPU step |
 | `NEMOTRON_LIVE_MAX_LAG` | `5` | seconds of backlog above which the worker reports itself not ready |
+| `NEMOTRON_LIVE_MAX_BACKLOG` | `300` | seconds of unprocessed audio after which a session is closed (bounds memory, about 19 MB per session) |
+| `NEMOTRON_LIVE_TOKEN` | – | when set, clients must send `Authorization: Bearer <token>` |
 | `SPEAKER_ID_LIVE_MILESTONES` | `10,30,60` | seconds of a speaker's speech at which it is identified |
 | `SPEAKER_ID_LIVE_CONFIRM_SECONDS` | `30` | speech needed for a `confirmed` identity |
 | `SPEAKER_ID_MIN_SIMILARITY` | `0.66` | identification threshold, as for files |
@@ -27,10 +29,10 @@ Client to server, first message:
                     "speakers": "*", "minSimilarity": null}}
 ```
 
-`identification` is optional. Every collection must belong to `organizationId`
-(`spkid_{organizationId}_{collectionId}`); the caller is responsible for the organization (the port is
-internal to the cluster). Then binary messages of PCM (16 kHz, mono, signed 16 bit little endian, any
-size, 100 ms is fine) and finally `{"type": "stop"}`.
+`identification` is optional; every collection must belong to `organizationId`
+(`spkid_{organizationId}_{collectionId}`). Then binary messages of PCM (16 kHz, mono, signed 16 bit
+little endian, any size up to 1 MB, 100 ms is fine) and finally `{"type": "stop"}`. Other text messages
+are ignored.
 
 Server to client:
 
@@ -40,12 +42,12 @@ Server to client:
 | `turns` | `{"until_ms": 125680, "turns": [{"speaker": "S2", "start_ms": 124960, "end_ms": 125680}]}`: speech of each speaker in the audio processed since the previous message. A turn cut at a chunk edge continues in the next message: join runs of the same speaker that touch. Turns of two speakers may overlap. |
 | `identity` | `{"speaker": "S2", "status": "provisional", "speaker_id": "label:…", "name": "Alice", "score": 0.81, "until_ms": 41200, "speech_s": 10.3}` |
 | `saturated` | sent once when the 8 speaker slots of the model are used: more people may be merged |
-| `error` | `{"code": "invalid_start" \| "full" \| "identification_unavailable", "message": …}` |
+| `error` | `{"code": …, "message": …}`, code `invalid_start`, `full`, `backlog`, `identification_unavailable` (the session goes on without names) or `internal` |
 | `end` | `{"until_ms": …}` after `stop`, once all the audio is processed; the server then closes |
 
 Times are milliseconds of audio received since the start. Speaker labels (`S1` to `S8`) are stable for
-the whole session. Close codes: 1008 invalid start message, 1013 worker full (reconnect: the load
-balancer picks another worker).
+the whole session. Close codes: 1008 invalid start message, 1013 worker full or backlog (reconnect: the
+load balancer picks another worker), 1011 internal error.
 
 Identity statuses: `provisional` (first match, less than 30 s of the speaker's speech), `confirmed`
 (match with 30 s or more), `revoked` (a later attempt no longer supports the name, or another speaker of
@@ -70,6 +72,14 @@ while the server runs.
 If a worker disappears, its sessions reconnect elsewhere and start again: speaker labels are
 renumbered and identities come back after 10 s of speech.
 
+## Security
+
+The port must stay internal to the cluster (no ingress). The organization of an identification request
+is declared by the caller, which must check it (as transcription-service does for files): with access
+to the port, anyone could search another organization's collections. Set `NEMOTRON_LIVE_TOKEN` on the
+workers and in the Transcriber to restrict the port to the Transcriber. `/ready` and `/healthz` need no
+token.
+
 ## Inside a worker
 
 One process: a websocket thread (asyncio) receives the audio of every session and sends the messages;
@@ -87,16 +97,17 @@ All measured on an RTX 4090 Laptop GPU, 27/09/2026.
 ### Unit tests (no GPU)
 
 ```bash
-uv run pytest test/nemotron/test_live_identify.py test/nemotron/test_live_units.py \
-    test/nemotron/test_live_server.py test/nemotron/test_live_session.py
+uv run pytest test/nemotron/test_live_identify.py test/nemotron/test_live_units.py test/nemotron/test_live_server.py \
+    test/nemotron/test_live_session.py test/nemotron/test_live_engine.py
 ```
 
 | File | What it checks |
 |---|---|
 | `test_live_identify.py` (16) | identification state machine: attempts at 10, 30, 60 s of speech and not before, `provisional` then `confirmed`, `revoked` when a later attempt disagrees, name change, threshold from the request or `SPEAKER_ID_MIN_SIMILARITY`, one enrolled person per speaker (better score takes the name, equal score keeps it) |
 | `test_live_units.py` (18) | start message validation, identification restricted to the organization's collections, turns from predictions, non-overlapped speech used for identification, GPU arbiter order (live, then identification, then files) |
-| `test_live_server.py` (6) | websocket flow with a fake engine and the reference client: turns joined across chunks, `end`, invalid start (1008), full worker (1013, `/ready` 503), stop without audio, client disconnection, identity messages with `until_ms` and `speech_s` |
+| `test_live_server.py` (10) | websocket flow with a fake engine and the reference client: turns joined across chunks, `end`, invalid start (1008), full worker (1013, `/ready` 503), stop without audio, client disconnection, identity messages with `until_ms` and `speech_s`, token (401 without it, probes open), backlog limit (1013), two sessions with the same client id, unexpected text messages |
 | `test_live_session.py` (4) | audio buffer: 20 min received at once in under 2 s (reconnection backlog), samples intact after compaction, chunk scheduling with right context and at the end of the stream |
+| `test_live_engine.py` (2) | a failing batch is replayed session by session without processing a chunk twice; a failing session is closed with an error, the others go on |
 
 ### GPU tests
 
@@ -156,8 +167,7 @@ one between two runs, as batches differ):
 | **0.66** | **72** | **4** | **4** | **9** | **4** |
 | 0.70 | 68 | 3 | 9 | 7 | 3 |
 
-At 0.66 the live results are as good as the file mode (69 correct, 5 wrong, 3 missed on the same
-meetings). Of the 9 wrong names shown, 5 are `provisional` names given at 10 s of speech and corrected at
+At 0.66 the live results are as good as the file mode (same data: 69 correct, 5 wrong, 3 missed). Of the 9 wrong names shown, 5 are `provisional` names given at 10 s of speech and corrected at
 30 s; the 4 others are the final wrong names, due to diarization (a speaker that mixes two people).
 Clients should show a `provisional` name differently from a `confirmed` one.
 

@@ -46,15 +46,17 @@ class FakeEngine:
     def max_lag(self):
         return 0.0
 
+    paused = False
+
     def add(self, session):
         with self.lock:
-            self.sessions[session.id] = session
+            self.sessions[session.key] = session
         self.wake.set()
 
     def remove(self, session):
         session.closed = True
         with self.lock:
-            self.sessions.pop(session.id, None)
+            self.sessions.pop(session.key, None)
 
     def notify(self):
         self.wake.set()
@@ -66,7 +68,7 @@ class FakeEngine:
             with self.lock:
                 sessions = list(self.sessions.values())
             for s in sessions:
-                while not s.closed and (spec := s.next_chunk()) is not None:
+                while not self.paused and not s.closed and (spec := s.next_chunk()) is not None:
                     _, start, end, _, _, _ = spec
                     frames = np.arange(start, end)
                     preds = np.zeros((end - start, 8), dtype=np.float32)
@@ -90,14 +92,17 @@ class FakeIdentification:
         session.apply_identity(label, seconds, [ALICE] if label == "S1" else [], until_ms)
 
 
+def make_server(port, **kw):
+    srv = LiveServer(FakeEngine(), FakeIdentification(), port, max_sessions=2, **kw)
+    srv.start()
+    srv.url = f"ws://localhost:{port}"
+    srv.http = f"http://localhost:{port}"
+    return srv
+
+
 @pytest.fixture
 def server(unused_tcp_port):
-    engine = FakeEngine()
-    srv = LiveServer(engine, FakeIdentification(), unused_tcp_port, max_sessions=2)
-    srv.start()
-    srv.url = f"ws://localhost:{unused_tcp_port}"
-    srv.http = f"http://localhost:{unused_tcp_port}"
-    return srv
+    return make_server(unused_tcp_port)
 
 
 @pytest.fixture
@@ -193,3 +198,64 @@ def test_identity_messages(server, wav):
     # S1 speaks 5 s out of 10: its 10 s of speech are reached about 20 s into the audio
     first = r["identities"][0]
     assert 19000 <= first["until_ms"] <= 22000 and 10 <= first["speech_s"] < 11
+
+
+def test_token(unused_tcp_port, wav):
+    from websockets.exceptions import InvalidStatus
+
+    srv = make_server(unused_tcp_port, token="s3cret")
+    with pytest.raises(InvalidStatus) as err:
+        asyncio.run(live_client.stream(srv.url, wav, speed=0))
+    assert err.value.response.status_code == 401
+    with pytest.raises(InvalidStatus):
+        asyncio.run(live_client.stream(srv.url, wav, speed=0, token="wrong"))
+    assert urllib.request.urlopen(srv.http + "/ready").status == 200  # probes need no token
+    assert asyncio.run(live_client.stream(srv.url, wav, speed=0, token="s3cret"))["until_ms"] == 70000
+
+
+def test_backlog_closes_the_session(server, wav, monkeypatch):
+    import diarization.live.server as server_module
+
+    monkeypatch.setattr(server_module, "MAX_BACKLOG_SECONDS", 5)
+    server.engine.paused = True  # nothing is processed: the backlog grows
+
+    async def go():
+        from websockets.exceptions import ConnectionClosed
+
+        async with connect(server.url) as ws:
+            await ws.send(json.dumps({"type": "start"}))
+            await ws.recv()
+            messages = []
+            try:
+                for _ in range(60):
+                    await ws.send(b"\0" * 3200)
+            except ConnectionClosed:
+                pass
+            try:
+                async for m in ws:
+                    messages.append(json.loads(m))
+            except ConnectionClosed:
+                pass
+            return messages, ws.close_code
+    messages, code = asyncio.run(go())
+    assert messages[-1]["code"] == "backlog" and code == 1013
+
+
+def test_same_client_session_id_twice(server, wav):
+    """Client ids are only labels: two sessions with the same id run side by side."""
+    async def both():
+        return await asyncio.gather(*(live_client.stream(server.url, wav, speed=0, session="channel-12") for _ in range(2)))
+    for r in asyncio.run(both()):
+        assert r["until_ms"] == 70000 and not r["errors"]
+
+
+def test_unexpected_text_messages_are_ignored(server):
+    async def go():
+        async with connect(server.url) as ws:
+            await ws.send(json.dumps({"type": "start"}))
+            await ws.recv()
+            await ws.send("[1, 2]")
+            await ws.send(json.dumps({"type": "pause"}))
+            await ws.send(json.dumps({"type": "stop"}))
+            return json.loads(await ws.recv())
+    assert asyncio.run(go()) == {"type": "end", "until_ms": 0}
