@@ -29,7 +29,9 @@ NAMESPACE_SPKID = uuid.UUID("b8a9cf6e-0000-4000-8000-5370656b4944")
 # Qdrant collection naming convention: spkid_{organizationId}_{studioCollectionId}
 QDRANT_COLLECTION_PATTERN = re.compile(r"^spkid_([0-9a-f]{24})_([0-9a-f]{24})$")
 
-DEFAULT_MIN_SIMILARITY = 0.5
+# SUMM-RE (34 meetings, 10-15 s voiceprints from other meetings): 0.5 gives an enrolled name to
+# most non-enrolled speakers; 0.66-0.68 is the best trade-off; 0.7 loses correct names.
+DEFAULT_MIN_SIMILARITY = 0.66
 
 
 def speaker_point_id(speaker_id):
@@ -125,7 +127,7 @@ def check_speaker_spec_dict(spec):
 
 
 def resolve_min_similarity(spec_value=None, env=None):
-    """Resolve the similarity threshold: spec value > SPEAKER_ID_MIN_SIMILARITY env > 0.5"""
+    """Resolve the similarity threshold: spec value > SPEAKER_ID_MIN_SIMILARITY env > default"""
     if spec_value is not None:
         return float(spec_value)
     env = os.environ if env is None else env

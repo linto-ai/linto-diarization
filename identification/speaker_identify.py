@@ -253,7 +253,7 @@ class SpeakerIdentifier:
         speaker_names,
         segments,
         exclude_speakers,
-        min_similarity=0.5,
+        min_similarity=None,
         sample_rate=16_000,
         limit_duration=3 * 60,
         spk_tag = None,
@@ -267,7 +267,7 @@ class SpeakerIdentifier:
             segments (list): list of segments to analyze (tuples of start and end times in seconds)
             exclude_speakers (list): list of speaker names to exclude
             min_similarity (float): minimum similarity to consider a speaker match
-                The default value 0.25 was taken from https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/inference/speaker.py#L61
+                (default: SPEAKER_ID_MIN_SIMILARITY, else DEFAULT_MIN_SIMILARITY)
             sample_rate (int): audio sample rate
             limit_duration (int): maximum duration (in seconds) of speech to identify a speaker (the first seconds of speech will be used, the other will be ignored)
             spk_tag: information for the logger
@@ -279,6 +279,8 @@ class SpeakerIdentifier:
         tic = time.time()
 
         assert len(speaker_names) > 0
+        if min_similarity is None:
+            min_similarity = resolve_min_similarity()
 
         audio_selection, total_duration = self._select_speaker_audio(
             audio, segments, sample_rate=sample_rate, limit_duration=limit_duration
