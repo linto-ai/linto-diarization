@@ -28,6 +28,12 @@ class SpeakerDiarization:
         self.speaker_identifier = SpeakerIdentifier(device=device, log=self.log)
         self.speaker_identifier.initialize_speaker_identification()
 
+    def start_live_server(self):
+        """Websocket live diarization on the same model (no-op unless NEMOTRON_LIVE_PORT is set)."""
+        from diarization.live import start_live_server
+
+        return start_live_server(self)
+
     def run(
         self,
         file_path,
