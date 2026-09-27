@@ -12,7 +12,10 @@ import redis
 from identification.spkid_core import MODEL_DIM, MODEL_ID
 from redis.commands.json.path import Path
 from redis.commands.search.field import NumericField, TextField
-from redis.commands.search.indexDefinition import IndexDefinition, IndexType
+try:
+    from redis.commands.search.index_definition import IndexDefinition, IndexType
+except ImportError:  # redis-py < 6
+    from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 
 SERVICE_DISCOVERY_DB = 0
 SERVICE_TYPE = "diarization"
@@ -100,6 +103,12 @@ def service_info() -> dict:
             "dim": MODEL_DIM,
         }
     )
+    # Diarization engine and its speaker ceiling (set in each image), used by
+    # transcription-service to route between engines
+    if os.environ.get("DIARIZATION_ENGINE"):
+        info_obj["engine"] = os.environ["DIARIZATION_ENGINE"]
+    if os.environ.get("DIARIZATION_MAX_SPEAKERS"):
+        info_obj["max_speakers"] = int(os.environ["DIARIZATION_MAX_SPEAKERS"])
     info = json.dumps(info_obj)
     return {
         "service_name": service_name,

@@ -138,10 +138,10 @@ class TestResolveMinSimilarity:
         assert resolve_min_similarity(None, env={"SPEAKER_ID_MIN_SIMILARITY": "0.3"}) == 0.3
 
     def test_default(self):
-        assert resolve_min_similarity(None, env={}) == 0.5
+        assert resolve_min_similarity(None, env={}) == 0.66
 
     def test_empty_env_value(self):
-        assert resolve_min_similarity(None, env={"SPEAKER_ID_MIN_SIMILARITY": ""}) == 0.5
+        assert resolve_min_similarity(None, env={"SPEAKER_ID_MIN_SIMILARITY": ""}) == 0.66
 
 
 class TestResolveCollections:

@@ -1,3 +1,11 @@
+# 2.3.1
+- GPU workers run Celery with `--pool=threads` instead of `--pool=solo`: the worker keeps answering ping/inspect during a task, so service discovery no longer drops a busy worker
+- Healthcheck always pings the worker (no more "GPU busy = healthy" shortcut)
+- Publish diarization progress as Celery state `PROGRESS` (meta `{"progress": 0..1}`)
+- Register `engine: pyannote` in the service info (used by transcription-service routing)
+- Speaker identification: an enrolled speaker is given to one diarized speaker at most (`CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER` now defaults to 0; allowing it gave wrong names on SUMM-RE)
+- Speaker identification: default similarity threshold 0.66 instead of 0.5 (`SPEAKER_ID_MIN_SIMILARITY`). With 10 s voiceprints taken from other meetings (SUMM-RE, 34 meetings), 0.5 gave an enrolled name to most non-enrolled speakers; at 0.66, 5 wrong names and 3 missed out of 76 enrolled speakers
+
 # 2.3.0
 - Update pyannote.audio to 4.0.4 (and speechbrain 1.1.0)
 - Switch diarization model to pyannote/speaker-diarization-community-1

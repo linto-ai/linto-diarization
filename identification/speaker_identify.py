@@ -24,7 +24,9 @@ from identification.spkid_core import (
 class SpeakerIdentifier:
     # Define class-level constants
     _FOLDER_WAV = os.environ.get("SPEAKER_SAMPLES_FOLDER", "/opt/speaker_samples")
-    _can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER", "1").lower() in ["true", "1", "yes"]
+    # An enrolled speaker is given to one diarized speaker at most: allowing more gave wrong
+    # names on SUMM-RE (pyannote 4, Nemotron 1, 0 when disallowed) and never fixed a split speaker
+    _can_identify_twice_the_same_speaker = os.environ.get("CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER", "0").lower() in ["true", "1", "yes"]
     _UNKNOWN = "<<UNKNOWN>>"
     _RECREATE_COLLECTION = os.getenv("QDRANT_RECREATE_COLLECTION", "False").lower() in ["true", "1", "yes"]
 
@@ -251,7 +253,7 @@ class SpeakerIdentifier:
         speaker_names,
         segments,
         exclude_speakers,
-        min_similarity=0.5,
+        min_similarity=None,
         sample_rate=16_000,
         limit_duration=3 * 60,
         spk_tag = None,
@@ -265,7 +267,7 @@ class SpeakerIdentifier:
             segments (list): list of segments to analyze (tuples of start and end times in seconds)
             exclude_speakers (list): list of speaker names to exclude
             min_similarity (float): minimum similarity to consider a speaker match
-                The default value 0.25 was taken from https://github.com/speechbrain/speechbrain/blob/develop/speechbrain/inference/speaker.py#L61
+                (default: SPEAKER_ID_MIN_SIMILARITY, else DEFAULT_MIN_SIMILARITY)
             sample_rate (int): audio sample rate
             limit_duration (int): maximum duration (in seconds) of speech to identify a speaker (the first seconds of speech will be used, the other will be ignored)
             spk_tag: information for the logger
@@ -277,6 +279,8 @@ class SpeakerIdentifier:
         tic = time.time()
 
         assert len(speaker_names) > 0
+        if min_similarity is None:
+            min_similarity = resolve_min_similarity()
 
         audio_selection, total_duration = self._select_speaker_audio(
             audio, segments, sample_rate=sample_rate, limit_duration=limit_duration

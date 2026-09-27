@@ -21,19 +21,12 @@ else
         exit 1
     fi
 
-    # Check if GPU is in use
-    has_gpu=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits | grep -v '^0$' | wc -l)
-    if [ "$has_gpu" -gt 0 ]; then
-        echo "HealthCheck PASS: GPU is being utilized, marking service as healthy."
-        exit 0
-    fi
-
-    # Attempt to ping Celery worker
+    # Attempt to ping Celery worker (answers even while a task runs, see docker-entrypoint.sh)
     if ! celery --app=celery_app.celeryapp inspect ping -d ${SERVICE_NAME}_worker@$HOSTNAME --timeout=20; then
-        echo "HealthCheck FAIL: Celery worker not responding in time and GPU is not being utilized"
+        echo "HealthCheck FAIL: Celery worker not responding in time"
         exit 1
     fi
 
-    echo "HealthCheck PASS: Celery worker is responsive but idle, marking service as healthy."
+    echo "HealthCheck PASS: Celery worker is responsive, marking service as healthy."
     exit 0
 fi

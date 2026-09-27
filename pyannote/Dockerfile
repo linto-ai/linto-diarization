@@ -65,6 +65,7 @@ RUN export VERSION=$(awk -v RS='' '/#/ {print; exit}' RELEASE.md | head -1 | sed
 
 ENV PYTHONPATH="${PYTHONPATH}:/usr/src/app/diarization"
 ENV PYANNOTE_CACHE=/opt/models
+ENV DIARIZATION_ENGINE=pyannote
 
 HEALTHCHECK CMD ./healthcheck.sh
 

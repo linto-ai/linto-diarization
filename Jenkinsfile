@@ -10,19 +10,24 @@ def notifyLintoDeploy(service_name, tag, commit_sha) {
     }
 }
 
-def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFiles, commit_sha) {
-    if (changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('http_server') || changedFiles.contains('document') || changedFiles.contains('docker-entrypoint.sh') || changedFiles.contains('healthcheck.sh') || changedFiles.contains('wait-for-it.sh')) {
+// compiledTarget: also build that Dockerfile target and push it with a "-compiled" tag suffix
+def buildDockerfile(main_folder, dockerfilePath, image_name, version, changedFiles, commit_sha, compiledTarget = null) {
+    if (changedFiles.contains(main_folder) || changedFiles.contains('celery_app') || changedFiles.contains('identification') || changedFiles.contains('pyproject.toml') || changedFiles.contains('uv.lock') || changedFiles.contains('http_server') || changedFiles.contains('document') || changedFiles.contains('docker-entrypoint.sh') || changedFiles.contains('healthcheck.sh') || changedFiles.contains('wait-for-it.sh')) {
         echo "Building Dockerfile for ${image_name} with version ${version} (using ${dockerfilePath})"
 
         script {
             def image = docker.build(image_name, "-f ${dockerfilePath} .")
+            def compiled = compiledTarget ? docker.build("${image_name}:compiled", "--target ${compiledTarget} -f ${dockerfilePath} .") : null
 
             docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials') {
                 if (version  == 'latest-unstable') {
                     image.push('latest-unstable')
+                    compiled?.push('latest-unstable-compiled')
                 } else {
                     image.push('latest')
                     image.push(version)
+                    compiled?.push('latest-compiled')
+                    compiled?.push("${version}-compiled")
                 }
             }
 
@@ -77,7 +82,9 @@ pipeline {
         // DOCKER_HUB_REPO_PYBK   = "lintoai/linto-diarization-pybk" // DEPRECATED
         DOCKER_HUB_REPO_PYANNOTE = "lintoai/linto-diarization-pyannote"
         DOCKER_HUB_REPO_SIMPLE = "lintoai/linto-diarization-simple"
+        DOCKER_HUB_REPO_NEMOTRON = "lintoai/linto-diarization-nemotron"
         STAGING_REGISTRY_PYANNOTE = "registry.staging.linto.ai/lintoai/linto-diarization-pyannote"
+        STAGING_REGISTRY_NEMOTRON = "registry.staging.linto.ai/lintoai/linto-diarization-nemotron"
         STAGING_REGISTRY_CRED = 'staging-registry-credentials'
     }
 
@@ -111,6 +118,12 @@ pipeline {
                         script: "awk -v RS='' '/#/ {print; exit}' pyannote/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
                     ).trim()
                     buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles, commit_sha)
+
+                    version = sh(
+                        returnStdout: true,
+                        script: "awk -v RS='' '/#/ {print; exit}' nemotron/RELEASE.md | head -1 | sed 's/#//' | sed 's/ //'"
+                    ).trim()
+                    buildDockerfile('nemotron', 'nemotron/Dockerfile', env.DOCKER_HUB_REPO_NEMOTRON, version, changedFiles, commit_sha, 'runtime-compiled')
                 }
             }
         }
@@ -130,6 +143,7 @@ pipeline {
                     // buildDockerfile('pybk', 'pybk/Dockerfile', env.DOCKER_HUB_REPO_PYBK, version, changedFiles, '') // DEPRECATED
                     buildDockerfile('simple', 'simple/Dockerfile', env.DOCKER_HUB_REPO_SIMPLE, version, changedFiles, '')
                     buildDockerfile('pyannote', 'pyannote/Dockerfile', env.DOCKER_HUB_REPO_PYANNOTE, version, changedFiles, '')
+                    buildDockerfile('nemotron', 'nemotron/Dockerfile', env.DOCKER_HUB_REPO_NEMOTRON, version, changedFiles, '', 'runtime-compiled')
                 }
             }
         }
@@ -139,15 +153,20 @@ pipeline {
                 branch 'staging/*'
             }
             steps {
-                echo 'Building staging feature-branch image (pyannote, private registry, never Docker Hub)'
+                echo 'Building staging feature-branch images (pyannote, nemotron, private registry, never Docker Hub)'
                 script {
                     def slug = env.BRANCH_NAME.replaceFirst('^staging/', '').replaceAll('[^a-zA-Z0-9]+', '-').toLowerCase()
                     def tag = "dev-${slug}"
                     def image = docker.build(env.STAGING_REGISTRY_PYANNOTE, "-f pyannote/Dockerfile .")
+                    def nemotron = docker.build(env.STAGING_REGISTRY_NEMOTRON, "-f nemotron/Dockerfile .")
+                    def nemotronCompiled = docker.build("${env.STAGING_REGISTRY_NEMOTRON}:compiled", "--target runtime-compiled -f nemotron/Dockerfile .")
                     docker.withRegistry('https://registry.staging.linto.ai', env.STAGING_REGISTRY_CRED) {
                         image.push(tag)
+                        nemotron.push(tag)
+                        nemotronCompiled.push("${tag}-compiled")
                     }
                     stagingDeploy('linto-diarization-pyannote', tag)
+                    stagingDeploy('linto-diarization-nemotron', tag)
                 }
             }
         }

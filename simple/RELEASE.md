@@ -1,3 +1,8 @@
+# 2.1.1
+- GPU workers run Celery with `--pool=threads` instead of `--pool=solo`: the worker keeps answering ping/inspect during a task, so service discovery no longer drops a busy worker
+- Healthcheck always pings the worker (no more "GPU busy = healthy" shortcut)
+- Speaker identification: an enrolled speaker is given to one diarized speaker at most (`CAN_IDENTIFY_TWICE_THE_SAME_SPEAKER` now defaults to 0; allowing it gave wrong names on SUMM-RE)
+
 # 2.1.0
 - Multi-collection speaker identification: `diarization_task` accepts a JSON object speaker specification ({collections, speakers, minSimilarity})
 - New Celery tasks for runtime enrollment: voiceprint_compute_task, speaker_upsert_task, speaker_delete_task, collection_drop_task
