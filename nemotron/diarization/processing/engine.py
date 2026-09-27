@@ -1,9 +1,11 @@
 """Nemotron diarization engine: Sortformer streaming inference over a file, block by block.
 
-Kept independent from Celery/HTTP so that a live (websocket) front-end can reuse it.
+Kept independent from Celery/HTTP so that the live (websocket) engine can share the model.
 """
+import contextlib
 import logging
 import os
+import threading
 
 import numpy as np
 import soundfile as sf
@@ -31,6 +33,34 @@ PRESETS = {
 }
 
 
+# GPU priorities: live chunks first, then speaker embeddings, then file chunks
+LIVE, IDENTIFICATION, FILE = 0, 1, 2
+
+
+class GpuArbiter:
+    """Lets one thread at a time use the model; a waiting thread with a lower priority value goes first."""
+
+    def __init__(self):
+        self._cond = threading.Condition()
+        self._busy = False
+        self._waiting = [0, 0, 0]
+
+    @contextlib.contextmanager
+    def hold(self, priority):
+        with self._cond:
+            self._waiting[priority] += 1
+            while self._busy or any(self._waiting[p] for p in range(priority)):
+                self._cond.wait()
+            self._waiting[priority] -= 1
+            self._busy = True
+        try:
+            yield
+        finally:
+            with self._cond:
+                self._busy = False
+                self._cond.notify_all()
+
+
 class NemotronEngine:
     """Loads the model once and runs files through the streaming loop.
 
@@ -44,19 +74,27 @@ class NemotronEngine:
         if preset not in PRESETS:
             raise ValueError(f"Unknown preset '{preset}', expected one of {sorted(PRESETS)}")
         self.device = torch.device(device)
+        self.preset = preset
+        self.gpu = GpuArbiter()
         if os.path.isfile(model_path):
             self.model = SortformerEncLabelModel.restore_from(model_path, map_location=self.device)
         else:
             self.model = SortformerEncLabelModel.from_pretrained(model_path, map_location=self.device)
         self.model.eval()
         sm = self.model.sortformer_modules
-        (sm.chunk_len, sm.chunk_right_context, sm.fifo_len, sm.spkcache_update_period, sm.spkcache_len) = PRESETS[preset]
-        sm.chunk_left_context = 1
+        self.use_preset(preset, async_streaming=False)
         self.max_speakers = sm.n_spk
         self.block_frames = int(block_seconds * SAMPLE_RATE / HOP)
         self.margin = int(margin_seconds * SAMPLE_RATE) // HOP * HOP
         self.postprocessing = load_postprocessing_from_yaml(None)
         log.info(f"Nemotron engine ready on {self.device} (preset={preset}, max_speakers={self.max_speakers})")
+
+    def use_preset(self, preset, async_streaming):
+        """Set the streaming parameters of the shared model. Call while holding self.gpu."""
+        sm = self.model.sortformer_modules
+        (sm.chunk_len, sm.chunk_right_context, sm.fifo_len, sm.spkcache_update_period, sm.spkcache_len) = PRESETS[preset]
+        sm.chunk_left_context = 1
+        self.model.async_streaming = async_streaming
 
     def num_frames(self, num_samples):
         """Number of 10 ms feature frames the preprocessor yields for num_samples."""
@@ -103,28 +141,33 @@ class NemotronEngine:
         return preds
 
     def _run_chunks(self, features, total):
-        """Same chunking as SortformerModules.streaming_feat_loader, on global frame indices."""
+        """Same chunking as SortformerModules.streaming_feat_loader, on global frame indices.
+        Each chunk takes the GPU with the FILE priority, so live sessions are served in between."""
         m, sm = self.model, self.model.sortformer_modules
         sub = sm.subsampling_factor
-        state = sm.init_streaming_state(batch_size=1, async_streaming=m.async_streaming, device=self.device)
+        with self.gpu.hold(FILE):
+            self.use_preset(self.preset, async_streaming=False)
+            state = sm.init_streaming_state(batch_size=1, async_streaming=False, device=self.device)
         empty = torch.zeros((1, 0, sm.n_spk), device=self.device)
         out = []
         start = end = 0
         while end < total:
-            left = min(sm.chunk_left_context * sub, start)
-            end = min(start + sm.chunk_len * sub, total)
-            right = min(sm.chunk_right_context * sub, total - end)
-            chunk = features(start - left, end + right)
-            length = torch.tensor([chunk.shape[2]], device=self.device)
-            state, preds = m.forward_streaming_step(
-                processed_signal=chunk.transpose(1, 2),
-                processed_signal_length=length,
-                streaming_state=state,
-                total_preds=empty,
-                left_offset=left,
-                right_offset=right,
-            )
-            out.append(preds[0].float().cpu())
+            with self.gpu.hold(FILE):
+                self.use_preset(self.preset, async_streaming=False)
+                left = min(sm.chunk_left_context * sub, start)
+                end = min(start + sm.chunk_len * sub, total)
+                right = min(sm.chunk_right_context * sub, total - end)
+                chunk = features(start - left, end + right)
+                length = torch.tensor([chunk.shape[2]], device=self.device)
+                state, preds = m.forward_streaming_step(
+                    processed_signal=chunk.transpose(1, 2),
+                    processed_signal_length=length,
+                    streaming_state=state,
+                    total_preds=empty,
+                    left_offset=left,
+                    right_offset=right,
+                )
+                out.append(preds[0].float().cpu())
             start = end
         return torch.cat(out).numpy() if out else np.zeros((0, sm.n_spk), dtype=np.float32)
 
