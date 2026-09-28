@@ -20,6 +20,13 @@ logging.basicConfig(
 logger = logging.getLogger("__diarization-serving__")
 
 
+@app.after_request
+def close_connection(response):
+    """The gevent server handles one connection at a time: an idle keep-alive client would block the next ones"""
+    response.headers["Connection"] = "close"
+    return response
+
+
 @app.route("/healthcheck", methods=["GET"])
 def healthcheck():
     return json.dumps({"healthcheck": "OK"}), 200

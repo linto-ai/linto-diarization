@@ -3,6 +3,7 @@
 - Live speaker identification: at 10, 30 and 60 s of a speaker's speech, `provisional` / `confirmed` / `revoked` identities
 - GPU arbiter shared by live chunks, voiceprints and file chunks (live first)
 - Optional shared token for the live port (`NEMOTRON_LIVE_TOKEN`), backlog limit per session (`NEMOTRON_LIVE_MAX_BACKLOG`)
+- HTTP mode: responses close the connection, an idle keep-alive client no longer blocks the next requests
 
 # 1.0.0
 - First release: speaker diarization with NVIDIA Nemotron 3 Diarization (Sortformer, up to 8 speakers)
